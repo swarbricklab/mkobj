@@ -25,6 +25,7 @@ Edit the config file to match your dataset structure.
 
 | Key | Description |
 |-----|-------------|
+| `deps.samples` | CSV file for subsetting cells by sample. Must have `sample_id` and `capture_id` columns. Only cells assigned to samples listed for each capture will be kept. Doublets and unassigned cells are always retained. |
 | `deps.demux` | Path to sample assignment files from SNP demux. Each capture directory should contain `cell_assignment.tsv` |
 | `deps.annotation` | Path to cell type annotations. Each capture directory should contain `cell_types.csv` |
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
@@ -55,6 +56,26 @@ capture
 NC001
 NC002
 NC003
+```
+
+## Samples file (for subsetting)
+
+The optional samples CSV file (`deps.samples`) is used to subset cells to a specific cohort.
+It must have `sample_id` and `capture_id` columns.
+
+For each capture, cells are kept if:
+- Their assigned `sample_id` is in the samples file for that capture, OR
+- They are marked as `status == "doublet"`, OR
+- Their `sample_id` is NA (unassigned cells)
+
+This is useful when multiple studies are pooled in the same capture but you only want cells from your cohort.
+
+Example:
+```csv
+sample_id,capture_id,tissue_id,donor_id
+4063,Atlas_Pool_2a,4063,4063
+4063,Atlas_Pool_2b,4063,4063
+4218,Atlas_Pool_2a,4218,4218
 ```
 
 ## Sample assignment files

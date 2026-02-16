@@ -20,6 +20,7 @@ output_rds <- snakemake@output[["rds"]]
 assignment_root <- snakemake@params[["assignment_root"]]
 annotation_root <- snakemake@params[["annotation_root"]]
 ambient_root <- snakemake@params[["ambient_root"]]
+samples_file <- snakemake@params[["samples_file"]]
 modality <- snakemake@params[["modality"]]
 
 # Extract capture name from wildcard
@@ -27,6 +28,41 @@ capture <- snakemake@wildcards[["capture"]]
 
 message("Creating Seurat object for capture: ", capture)
 message("Matrix directory: ", matrix_dir)
+
+# Helper function to get valid sample_ids for this capture from samples.csv
+get_valid_samples <- function(capture, samples_file) {
+    if (is.null(samples_file) || samples_file == "") {
+        message("No samples file configured. No sample filtering will be applied.")
+        return(NULL)
+    }
+    
+    if (!file.exists(samples_file)) {
+        message("Samples file not found: ", samples_file, ". No sample filtering will be applied.")
+        return(NULL)
+    }
+    
+    samples <- read_csv(samples_file, show_col_types = FALSE)
+    
+    if (!"sample_id" %in% colnames(samples) || !"capture_id" %in% colnames(samples)) {
+        message("Samples file missing required columns (sample_id, capture_id). No filtering applied.")
+        return(NULL)
+    }
+    
+    # Filter to this capture and get unique sample_ids
+    valid_samples <- samples %>%
+        filter(capture_id == capture) %>%
+        pull(sample_id) %>%
+        unique() %>%
+        na.omit()
+    
+    if (length(valid_samples) == 0) {
+        message("No samples found for capture ", capture, " in samples file. No filtering applied.")
+        return(NULL)
+    }
+    
+    message("Valid samples from samples.csv: ", paste(valid_samples, collapse = ", "))
+    return(valid_samples)
+}
 
 # Helper function to load sample assignments
 load_assignments <- function(capture, barcodes, assignment_root) {
@@ -151,6 +187,45 @@ obj <- obj %>%
     AddMetaData(metadata = load_assignments(capture, barcodes, assignment_root)) %>%
     AddMetaData(metadata = load_annotations(capture, annotation_root)) %>%
     AddMetaData(metadata = load_ambient(capture, ambient_root))
+
+# Subset cells based on samples.csv if provided
+valid_samples <- get_valid_samples(capture, samples_file)
+
+if (!is.null(valid_samples)) {
+    message("\nFiltering cells for capture: ", capture)
+    n_input <- ncol(obj)
+    
+    # Get cell metadata
+    cell_meta <- obj[[]]
+    
+    # Determine which cells to keep:
+    # 1. Cells with sample_id in valid_samples (cohort singlets)
+    # 2. Cells with status == "doublet"
+    # 3. Cells with NA sample_id (unassigned)
+    is_cohort_singlet <- cell_meta$sample_id %in% valid_samples
+    is_doublet <- !is.na(cell_meta$status) & cell_meta$status == "doublet"
+    is_unassigned <- is.na(cell_meta$sample_id)
+    
+    keep_cells <- is_cohort_singlet | is_doublet | is_unassigned
+    
+    # Log filtering stats
+    n_cohort_singlets <- sum(is_cohort_singlet)
+    n_doublets <- sum(is_doublet)
+    n_unassigned <- sum(is_unassigned)
+    n_kept <- sum(keep_cells)
+    n_filtered <- n_input - n_kept
+    
+    message("  Valid samples from samples.csv: ", paste(valid_samples, collapse = ", "))
+    message("  Input: ", n_input, " cells")
+    message("  Kept: ", n_kept, " cells")
+    message("    - Cohort singlets: ", n_cohort_singlets)
+    message("    - Doublets: ", n_doublets)
+    message("    - Unassigned: ", n_unassigned)
+    message("  Filtered out: ", n_filtered, " cells (samples not in cohort)")
+    
+    # Subset the Seurat object
+    obj <- obj[, keep_cells]
+}
 
 # Add capture ID to cell barcodes (for uniqueness when merging)
 prefixed_barcodes <- paste0(capture, "_", colnames(obj))

@@ -10,6 +10,12 @@ deps:
   # CSV file listing captures to process (requires 'capture' column)
   captures: "config/chromium-preprocessing/captures.csv"
   
+  # [Optional] CSV file for subsetting cells by sample
+  # Must have 'sample_id' and 'capture_id' columns. For each capture, only cells
+  # assigned to sample_ids listed for that capture will be kept.
+  # Doublets and unassigned cells are always retained.
+  # samples: "samples.csv"
+  
   # [Optional] Path to sample assignment files from SNP demux
   # Each capture should have {capture}/cell_assignment.tsv
   demux: "data/snp/demux/assignment"
@@ -23,7 +29,7 @@ deps:
   ambient: "data/snp/demux/vireo"
   
   # [Optional] Path to experimental metadata CSV
-  # Will be joined to cell metadata on the 'assignment' column
+  # Will be joined to cell metadata on 'sample_id'
   # metadata: "data/meta/experiment.csv"
 
 # Outputs
