@@ -1,10 +1,13 @@
 # mkseurat
 
-Create a merged Seurat object from Cell Ranger filtered feature barcode matrices.
+Create merged Seurat and AnnData objects from Cell Ranger filtered feature barcode matrices.
 
 ## Overview
 
-This workflow processes 10X Chromium single-cell data from Cell Ranger output and creates a merged Seurat object.
+This workflow processes 10X Chromium single-cell data from Cell Ranger output and creates both:
+- **Seurat objects** (R/Bioconductor ecosystem)
+- **AnnData objects** (Python/ScanPy ecosystem)
+
 It supports:
 - **Unimodal data**: Gene expression only
 - **Multimodal data**: Gene expression + Antibody Capture (CITE-seq)
@@ -48,8 +51,9 @@ cp modules/mkseurat/config/template.yaml config/mkseurat/config.yaml
 
 ## Workflow Structure
 
-The workflow is organized into the following rules:
+The workflow is organized into parallel Seurat and AnnData pipelines:
 
+### Seurat Pipeline (R)
 1. **create_seurat_object**: Create individual Seurat objects per capture
    - Reads Cell Ranger filtered matrices
    - Handles multimodal data (GEX + AB)
@@ -61,6 +65,19 @@ The workflow is organized into the following rules:
    - Joins layers for proper integration
 
 3. **attach_metadata** (optional): Add experimental metadata
+   - Joins metadata CSV to cell metadata
+
+### AnnData Pipeline (Python)
+1. **create_anndata_object**: Create individual AnnData objects per capture
+   - Reads Cell Ranger filtered matrices
+   - Handles multimodal data (GEX + AB stored in obsm)
+   - Attaches sample assignments, annotations, and ambient profiles
+   - Prefixes barcodes with capture ID
+
+2. **merge_anndata_captures**: Merge all capture objects into one
+   - Combines all captures using anndata.concat
+
+3. **attach_metadata_anndata** (optional): Add experimental metadata
    - Joins metadata CSV to cell metadata
 
 ## Configuration
@@ -84,13 +101,16 @@ outs:
 | File | Description |
 |------|-------------|
 | `merged.qs` | Merged Seurat object in qs format |
-| `merged_annotated.qs` | Merged object with metadata (if configured) |
+| `merged_annotated.qs` | Merged Seurat object with metadata (if configured) |
+| `merged.h5ad` | Merged AnnData object in h5ad format |
+| `merged_annotated.h5ad` | Merged AnnData object with metadata (if configured) |
 
 ## Requirements
 
 - Snakemake 7.32.4
 - Conda/Mamba
 - R packages: Seurat 5.1, qs, tidyverse
+- Python packages: scanpy>=1.10, anndata>=0.10, pandas, numpy
 
 ## Authors
 

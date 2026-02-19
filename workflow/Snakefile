@@ -8,18 +8,29 @@ log_dir = Path(config['outs']['logs'])
 # Load capture list
 captures = pd.read_csv(config['deps']['captures'])['capture'].tolist()
 
-# Include rule files
+# Include rule files - common utilities
 include: "rules/common.smk"
+
+# Seurat rules
 include: "rules/create_seurat.smk"
 include: "rules/merge.smk"
 
-# Build target list
-targets = [out_dir / "merged.qs"]
+# AnnData rules
+include: "rules/create_anndata.smk"
+include: "rules/merge_anndata.smk"
+
+# Build target list - both Seurat and AnnData outputs
+seurat_target = out_dir / "merged.qs"
+anndata_target = out_dir / "merged.h5ad"
 
 # Optionally add metadata if configured
 if config.get('deps', {}).get('metadata'):
     include: "rules/metadata.smk"
-    targets = [out_dir / "merged_annotated.qs"]
+    include: "rules/metadata_anndata.smk"
+    seurat_target = out_dir / "merged_annotated.qs"
+    anndata_target = out_dir / "merged_annotated.h5ad"
+
+targets = [seurat_target, anndata_target]
 
 rule all:
     input:
