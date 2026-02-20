@@ -5,7 +5,7 @@ set -e
 eval "$(conda shell.bash hook)"
 conda activate snakemake_7.32.4
 
-module=mkseurat
+module=mkobj
 
 if [[ "$(hostname)" == *"nci"* ]]; then
     echo "Running on NCI"
