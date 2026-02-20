@@ -21,7 +21,11 @@ set-resources:
     threads: 16
     mem: "128GB"
     runtime: 60
-  attach_metadata:
-    threads: 4
-    mem: "32GB"
+  create_anndata_object:
+    threads: 1
+    mem: "8GB"
     runtime: 30
+  merge_anndata_captures:
+    threads: 16
+    mem: "128GB"
+    runtime: 60

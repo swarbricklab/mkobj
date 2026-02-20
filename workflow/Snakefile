@@ -19,16 +19,9 @@ include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
 include: "rules/merge_anndata.smk"
 
-# Build target list - both Seurat and AnnData outputs
+# Targets - merged outputs for both formats
 seurat_target = out_dir / "merged.qs"
 anndata_target = out_dir / "merged.h5ad"
-
-# Optionally add metadata if configured
-if config.get('deps', {}).get('metadata'):
-    include: "rules/metadata.smk"
-    include: "rules/metadata_anndata.smk"
-    seurat_target = out_dir / "merged_annotated.qs"
-    anndata_target = out_dir / "merged_annotated.h5ad"
 
 targets = [seurat_target, anndata_target]
 

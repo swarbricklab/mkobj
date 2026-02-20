@@ -27,10 +27,6 @@ deps:
   # [Optional] Path to ambient RNA profile files
   # Each capture should have {capture}/ambient_summary.csv
   ambient: "data/snp/demux/vireo"
-  
-  # [Optional] Path to experimental metadata CSV
-  # Will be joined to cell metadata on 'sample_id'
-  # metadata: "data/meta/experiment.csv"
 
 # Outputs
 outs:
@@ -43,8 +39,3 @@ params:
   # - "auto": detect automatically (default)
   # - "Gene Expression": use gene expression only
   modality: "auto"
-  
-  # Column in metadata CSV to join on 'sample_id' in the Seurat object (default: "sample_id")
-  # The Seurat object always uses 'sample_id'. If your metadata CSV uses a different column name,
-  # specify it here and it will be renamed to 'sample_id' for the join.
-  metadata_join_column: "sample_id"

@@ -85,7 +85,7 @@ def load_assignments(capture: str, barcodes: list, assignment_root: str) -> pd.D
             'sample_id': [capture] * len(barcodes)
         }, index=barcodes)
     
-    assignments = pd.read_csv(assignment_path, sep='\t')
+    assignments = pd.read_csv(assignment_path, sep='\t', dtype={'assignment': str, 'status': str})
     assignments = assignments.rename(columns={'assignment': 'sample_id'})
     assignments = assignments.set_index('barcode')
     logger.info(f"Loaded assignments for {len(assignments)} cells")
@@ -264,6 +264,13 @@ adata.obs_names = prefixed_barcodes
 
 # Add capture metadata
 adata.obs['capture'] = capture
+
+# Convert string columns with NA values to proper string type for h5ad compatibility
+# h5py can't handle mixed types or np.nan in string arrays
+for col in adata.obs.columns:
+    if adata.obs[col].dtype == 'object' or pd.api.types.is_string_dtype(adata.obs[col]):
+        # Fill NA with "NA" string and convert to string type
+        adata.obs[col] = adata.obs[col].fillna("NA").astype(str)
 
 # Save AnnData object
 logger.info(f"Saving AnnData object to: {output_h5ad}")

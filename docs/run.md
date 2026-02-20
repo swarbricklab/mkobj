@@ -45,7 +45,7 @@ cd /path/to/mkseurat
 After successful completion, outputs will be in the configured `outs.results` directory:
 
 - `merged.qs` - Merged Seurat object
-- `merged_annotated.qs` - With metadata (if configured)
+- `merged.h5ad` - Merged AnnData object
 
 ## Logs
 

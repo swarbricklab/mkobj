@@ -29,7 +29,6 @@ Edit the config file to match your dataset structure.
 | `deps.demux` | Path to sample assignment files from SNP demux. Each capture directory should contain `cell_assignment.tsv` |
 | `deps.annotation` | Path to cell type annotations. Each capture directory should contain `cell_types.csv` |
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
-| `deps.metadata` | Path to experimental metadata CSV. Will be joined to cell metadata |
 
 ### Outputs
 
@@ -43,7 +42,6 @@ Edit the config file to match your dataset structure.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `params.modality` | How to handle multimodal data (`auto`, `Gene Expression`) | `auto` |
-| `params.metadata_join_column` | Column in metadata CSV to match against `sample_id` in the Seurat object | `sample_id` |
 
 ## Captures CSV
 
@@ -84,10 +82,3 @@ If using SNP-based demultiplexing, each capture should have a `cell_assignment.t
 - `barcode`: Cell barcode
 - `status`: Assignment status (singlet, doublet, unassigned)
 - `assignment`: Sample assignment (will be stored as `sample_id` in the Seurat object)
-
-## Metadata file
-
-Optional experimental metadata CSV should have a column matching `params.metadata_join_column` (default: `sample_id`).
-The Seurat object always uses `sample_id` for sample identifiers. If your metadata CSV uses a different column name,
-specify it in `params.metadata_join_column` and it will be renamed for the join.
-Additional columns will be added to cell metadata in the Seurat object.

@@ -16,7 +16,6 @@ The workflow can optionally attach:
 - Sample assignments from SNP-based demultiplexing
 - Cell type annotations
 - Ambient RNA profiles
-- Experimental metadata
 
 ## Modes
 
@@ -64,9 +63,6 @@ The workflow is organized into parallel Seurat and AnnData pipelines:
    - Combines all captures using Seurat's merge function
    - Joins layers for proper integration
 
-3. **attach_metadata** (optional): Add experimental metadata
-   - Joins metadata CSV to cell metadata
-
 ### AnnData Pipeline (Python)
 1. **create_anndata_object**: Create individual AnnData objects per capture
    - Reads Cell Ranger filtered matrices
@@ -76,9 +72,6 @@ The workflow is organized into parallel Seurat and AnnData pipelines:
 
 2. **merge_anndata_captures**: Merge all capture objects into one
    - Combines all captures using anndata.concat
-
-3. **attach_metadata_anndata** (optional): Add experimental metadata
-   - Joins metadata CSV to cell metadata
 
 ## Configuration
 
@@ -101,9 +94,7 @@ outs:
 | File | Description |
 |------|-------------|
 | `merged.qs` | Merged Seurat object in qs format |
-| `merged_annotated.qs` | Merged Seurat object with metadata (if configured) |
 | `merged.h5ad` | Merged AnnData object in h5ad format |
-| `merged_annotated.h5ad` | Merged AnnData object with metadata (if configured) |
 
 ## Requirements
 
