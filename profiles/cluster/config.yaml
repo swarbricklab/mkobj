@@ -9,12 +9,11 @@ cluster-generic-submit-cmd: >-
   --cpus {threads}
   --time {resources.runtime}m
   -- bash
-cluster-generic-status-cmd: "qxub status --snakemake"
+cluster-generic-status-cmd: "qxat check --snakemake"
 cluster-generic-cancel-cmd: "qdel"
 
 # Software deployment
 software-deployment-method: [conda, apptainer]
-conda-frontend: mamba
 
 # Job scheduling
 jobs: 1000

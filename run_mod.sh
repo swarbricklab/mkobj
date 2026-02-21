@@ -3,7 +3,7 @@
 
 set -e
 eval "$(conda shell.bash hook)"
-conda activate snakemake_8  # TODO: update environment name
+conda activate snakemake_8.30.0
 
 module=mkobj
 profile="--profile modules/$module/profiles/cluster"
