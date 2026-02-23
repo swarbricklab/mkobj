@@ -5,11 +5,11 @@
 executor: cluster-generic
 cluster-generic-submit-cmd: >-
   qxub exec --terse
+  --name {rule}.{jobid}
   --mem {resources.mem_mb}M
   --cpus {threads}
   --time {resources.runtime}m
-  -- bash
-cluster-generic-status-cmd: "qxat check --snakemake"
+cluster-generic-status-cmd: "qxtat check --snakemake"
 cluster-generic-cancel-cmd: "qdel"
 
 # Software deployment
@@ -17,10 +17,8 @@ software-deployment-method: [conda, apptainer]
 
 # Job scheduling
 jobs: 1000
-max-jobs-per-second: 1
 max-status-checks-per-second: 10
 latency-wait: 60
-cores: 99
 local-cores: 1
 
 # General settings
