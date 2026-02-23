@@ -2,23 +2,25 @@
 
 ## Prerequisites
 
-- Conda or Mamba
+- Conda
 - Git (for submodule installation)
 - DVC (for data tracking, optional)
+- [qxub](https://github.com/swarbricklab/qxub) (for PBS cluster submission)
 
 ## Snakemake Environment
 
-Create the Snakemake environment:
+This workflow requires Snakemake 8+ with the cluster-generic executor plugin.
+
+Create or activate the Snakemake environment:
 
 ```bash
-conda env create -f env/snakemake_7.32.4.yaml
+conda activate snakemake_8.30.0
 ```
 
-Activate the environment before running the workflow:
-
-```bash
-conda activate snakemake_7.32.4
-```
+The environment should include:
+- `snakemake >= 8.0`
+- `snakemake-executor-plugin-cluster-generic`
+- `qxub` / `qxtat` (PBS submission and status checking)
 
 ## Installing as a Submodule
 
@@ -26,17 +28,27 @@ To use this workflow in a dataset project:
 
 ```bash
 cd /path/to/dataset
-git submodule add <repo-url> modules/mkseurat
+git submodule add <repo-url> modules/mkobj
 git submodule update --init --recursive
 ```
 
-## R Packages
+## Rule Environments
 
-The required R packages are installed automatically via conda when running rules.
-The environment is defined in `workflow/envs/seurat.yaml`.
+Rule-level conda environments are defined in `workflow/envs/` and installed automatically
+by Snakemake on the first run (via Apptainer/Conda software deployment).
 
-Key packages:
-- Seurat 5.1
+### Seurat (R)
+
+Defined in `workflow/envs/seurat.yaml`:
+- R Seurat 5.1
 - SeuratObject
-- qs (for fast serialization)
+- qs (fast serialization)
 - tidyverse (readr, dplyr, tibble)
+
+### Scanpy (Python)
+
+Defined in `workflow/envs/scanpy.yaml`:
+- Python >= 3.10
+- scanpy >= 1.10
+- anndata >= 0.10
+- pandas, numpy, scipy, h5py

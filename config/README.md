@@ -8,8 +8,8 @@ To use this workflow as a module in a dataset project, copy the template config 
 
 ```bash
 cd top/of/project
-mkdir -p config/mkseurat
-cp modules/mkseurat/config/template.yaml config/mkseurat/config.yaml
+mkdir -p config/mkobj
+cp modules/mkobj/config/template.yaml config/mkobj/config.yaml
 ```
 
 Edit the config file to match your dataset structure.
@@ -25,7 +25,7 @@ Edit the config file to match your dataset structure.
 
 | Key | Description |
 |-----|-------------|
-| `deps.samples` | CSV file for subsetting cells by sample. Must have `sample_id` and `capture_id` columns. Only cells assigned to samples listed for each capture will be kept. Doublets and unassigned cells are always retained. |
+| `deps.samples` | CSV file for subsetting cells by sample. Must have `sample_id` and `capture_id` columns. For each capture, only cells assigned to listed samples are kept. Doublets and unassigned cells are always retained. |
 | `deps.demux` | Path to sample assignment files from SNP demux. Each capture directory should contain `cell_assignment.tsv` |
 | `deps.annotation` | Path to cell type annotations. Each capture directory should contain `cell_types.csv` |
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
@@ -34,7 +34,7 @@ Edit the config file to match your dataset structure.
 
 | Key | Description |
 |-----|-------------|
-| `outs.results` | Directory for output files (merged Seurat object) |
+| `outs.results` | Directory for output files (`merged.qs` and `merged.h5ad`) |
 | `outs.logs` | Directory for log files |
 
 ### Parameters
@@ -42,6 +42,9 @@ Edit the config file to match your dataset structure.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `params.modality` | How to handle multimodal data (`auto`, `Gene Expression`) | `auto` |
+
+When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
+and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).
 
 ## Captures CSV
 
@@ -76,9 +79,13 @@ sample_id,capture_id,tissue_id,donor_id
 4218,Atlas_Pool_2a,4218,4218
 ```
 
+This filtering logic is applied identically in both the Seurat and AnnData pipelines.
+
 ## Sample assignment files
 
 If using SNP-based demultiplexing, each capture should have a `cell_assignment.tsv` file with columns:
 - `barcode`: Cell barcode
 - `status`: Assignment status (singlet, doublet, unassigned)
-- `assignment`: Sample assignment (will be stored as `sample_id` in the Seurat object)
+- `assignment`: Sample assignment (stored as `sample_id` in cell metadata)
+
+If no demux data is configured, all cells default to `status = "singlet"` and `sample_id = {capture}`.
