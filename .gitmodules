@@ -1,3 +1,0 @@
-[submodule "profiles/global"]
-	path = profiles/global
-	url = git@github.com:swarbricklab/snakemake_config.git

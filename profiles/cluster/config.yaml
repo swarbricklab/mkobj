@@ -1,0 +1,53 @@
+# Cluster profile for mkobj (Snakemake 8+)
+# Platform-specific settings (project, volumes, bind mounts) are handled by qxub
+
+# Executor settings
+executor: cluster-generic
+cluster-generic-submit-cmd: >-
+  qxub exec --terse
+  --name {rule}.{jobid}
+  --mem {resources.mem_mb}M
+  --cpus {threads}
+  --time {resources.runtime}m
+cluster-generic-status-cmd: "qxtat check --snakemake"
+cluster-generic-cancel-cmd: "qdel"
+
+# Software deployment
+software-deployment-method: [conda, apptainer]
+
+# Job scheduling
+jobs: 1000
+max-status-checks-per-second: 10
+latency-wait: 60
+local-cores: 1
+
+# General settings
+keep-going: True
+rerun-incomplete: True
+retries: 0
+
+# Default resources (can be overridden per-rule below)
+default-resources:
+  runtime: 600
+  mem_mb: 4000
+  threads: 1
+  disk_mb: 100
+
+# Per-rule resource overrides
+set-resources:
+  create_seurat_object:
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
+  merge_captures:
+    threads: 16
+    mem_mb: 128000
+    runtime: 60
+  create_anndata_object:
+    threads: 1
+    mem_mb: 8000
+    runtime: 30
+  merge_anndata_captures:
+    threads: 16
+    mem_mb: 128000
+    runtime: 60

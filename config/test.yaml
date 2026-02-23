@@ -7,7 +7,6 @@ deps:
   # demux: "test/data/demux"
   # annotation: "test/data/annotation"
   # ambient: "test/data/ambient"
-  # metadata: "test/data/metadata.csv"
 
 outs:
   results: "test/results"
@@ -15,4 +14,3 @@ outs:
 
 params:
   modality: "auto"
-  metadata_join_column: "assignment"

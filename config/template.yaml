@@ -1,14 +1,14 @@
-# mkseurat Configuration Template
+# mkobj Configuration Template
 # Edit this file according to your dataset structure
 
 # Dependencies
 deps:
   # Path to filtered feature barcode matrices from Cell Ranger
   # Each capture should be a subdirectory containing barcodes.tsv.gz, features.tsv.gz, matrix.mtx.gz
-  cellranger: "data/sc/cellranger/count/filtered"
+  cellranger: "data/counts"
   
   # CSV file listing captures to process (requires 'capture' column)
-  captures: "config/chromium-preprocessing/captures.csv"
+  captures: "config/mkobj/captures.csv"
   
   # [Optional] CSV file for subsetting cells by sample
   # Must have 'sample_id' and 'capture_id' columns. For each capture, only cells
@@ -18,24 +18,20 @@ deps:
   
   # [Optional] Path to sample assignment files from SNP demux
   # Each capture should have {capture}/cell_assignment.tsv
-  demux: "data/snp/demux/assignment"
+  demux: "data/demux"
   
   # [Optional] Path to cell type annotation files
   # Each capture should have {capture}/cell_types.csv  
-  annotation: "data/sc/cellranger/annotation"
+  annotation: "data/annotations"
   
   # [Optional] Path to ambient RNA profile files
   # Each capture should have {capture}/ambient_summary.csv
-  ambient: "data/snp/demux/vireo"
-  
-  # [Optional] Path to experimental metadata CSV
-  # Will be joined to cell metadata on 'sample_id'
-  # metadata: "data/meta/experiment.csv"
+  ambient: "data/ambient"
 
 # Outputs
 outs:
-  results: "data/sc/seurat"
-  logs: "logs/mkseurat"
+  results: "data/objects"
+  logs: "logs/mkobj"
 
 # Parameters
 params:
@@ -43,8 +39,3 @@ params:
   # - "auto": detect automatically (default)
   # - "Gene Expression": use gene expression only
   modality: "auto"
-  
-  # Column in metadata CSV to join on 'sample_id' in the Seurat object (default: "sample_id")
-  # The Seurat object always uses 'sample_id'. If your metadata CSV uses a different column name,
-  # specify it here and it will be renamed to 'sample_id' for the join.
-  metadata_join_column: "sample_id"
