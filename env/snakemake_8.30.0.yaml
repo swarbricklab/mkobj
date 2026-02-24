@@ -1,0 +1,17 @@
+name: snakemake_8.30.0
+
+channels:
+    - conda-forge
+    - default
+
+dependencies:
+    - snakemake=8.30.0
+    - snakemake-executor-plugin-cluster-generic
+    - yq
+    - mamba
+    - click
+    - csvkit
+    - git>=2.7.2
+    - pip
+    - pip:
+        - git+ssh://git@github.com/swarbricklab/qxub.git
