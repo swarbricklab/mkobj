@@ -16,13 +16,23 @@ from pathlib import Path
 from scipy.io import mmread
 from scipy.sparse import csr_matrix
 
-# Set up logging
+# Set up logging — write to snakemake log file AND stderr
 logging.basicConfig(
-    filename=snakemake.log[0],
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(snakemake.log[0]),
+        logging.StreamHandler(sys.stderr),
+    ],
 )
 logger = logging.getLogger(__name__)
+
+# Ensure uncaught exceptions are logged to the log file
+def _excepthook(exc_type, exc_value, exc_tb):
+    logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_tb))
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _excepthook
 
 # Extract parameters from snakemake
 matrix_dir = Path(snakemake.input.matrix_dir)
@@ -235,7 +245,7 @@ if valid_samples is not None:
     # 2. Cells with status == "doublet"
     # 3. Cells with NA sample_id (unassigned)
     is_cohort_singlet = adata.obs['sample_id'].isin(valid_samples)
-    is_doublet = adata.obs['status'].fillna('') == 'doublet'
+    is_doublet = adata.obs['status'].eq('doublet') & adata.obs['status'].notna()
     is_unassigned = adata.obs['sample_id'].isna()
     
     keep_cells = is_cohort_singlet | is_doublet | is_unassigned

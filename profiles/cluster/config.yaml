@@ -9,6 +9,8 @@ cluster-generic-submit-cmd: >-
   --mem {resources.mem_mb}M
   --cpus {threads}
   --time {resources.runtime}m
+  --log-dir logs/joblogs/mkobj
+  --tags workflow={resources.workflow},rule={rule}
 cluster-generic-status-cmd: "qxtat check --snakemake"
 cluster-generic-cancel-cmd: "qdel"
 
@@ -28,6 +30,7 @@ retries: 0
 
 # Default resources (can be overridden per-rule below)
 default-resources:
+  workflow: mkobj
   runtime: 600
   mem_mb: 4000
   threads: 1
@@ -41,13 +44,13 @@ set-resources:
     runtime: 30
   merge_captures:
     threads: 16
-    mem_mb: 128000
-    runtime: 60
+    mem_mb: 190000
+    runtime: 120
   create_anndata_object:
     threads: 1
     mem_mb: 8000
     runtime: 30
   merge_anndata_captures:
     threads: 16
-    mem_mb: 128000
-    runtime: 60
+    mem_mb: 190000
+    runtime: 120

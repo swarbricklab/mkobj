@@ -1,10 +1,13 @@
 #! /usr/bin/env Rscript
 # workflow/scripts/merge_captures.R
 # Merge individual capture Seurat objects into a single object
+# Optionally filters cells to a subset defined by samples.csv
 
 suppressPackageStartupMessages({
     library(Seurat)
     library(SeuratObject)
+    library(readr)
+    library(dplyr)
     library(qs)
 })
 
@@ -15,16 +18,65 @@ sink(log_con); sink(log_con, type = "message")
 # Get input and output paths
 rds_files <- snakemake@input[["rds_files"]]
 output_file <- snakemake@output[["merged"]]
+samples_file <- snakemake@params[["samples_file"]]
 
 message("Merging ", length(rds_files), " capture objects...")
 message("Output file: ", output_file)
 
-# Load all objects
+# ── Load samples filter (if any) ────────────────────────────────────────────────
+samples_filter <- NULL
+if (!is.null(samples_file) && samples_file != "" && file.exists(samples_file)) {
+    message("Loading samples filter from: ", samples_file)
+    samples_filter <- read_csv(samples_file, show_col_types = FALSE)
+    message("  Filtering to ", nrow(samples_filter), " sample-capture pairs")
+}
+
+# ── Helper: filter a Seurat object to a subset ──────────────────────────────────
+filter_object <- function(obj, samples_filter) {
+    if (is.null(samples_filter)) return(obj)
+
+    # Determine capture from the first barcode prefix
+    capture <- obj$capture[1]
+    valid_samples <- samples_filter %>%
+        filter(capture_id == capture) %>%
+        pull(sample_id) %>%
+        unique()
+
+    if (length(valid_samples) == 0) {
+        message("  No samples listed for capture ", capture, " — keeping all cells")
+        return(obj)
+    }
+
+    n_before <- ncol(obj)
+    cell_meta <- obj[[]]
+
+    keep <- cell_meta$sample_id %in% valid_samples |
+            (!is.na(cell_meta$status) & cell_meta$status == "doublet") |
+            is.na(cell_meta$sample_id)
+
+    obj <- obj[, keep]
+    message("  Filtered ", capture, ": ", n_before, " -> ", ncol(obj), " cells",
+            " (kept ", sum(cell_meta$sample_id %in% valid_samples), " cohort singlets, ",
+            sum(!is.na(cell_meta$status) & cell_meta$status == "doublet"), " doublets, ",
+            sum(is.na(cell_meta$sample_id)), " unassigned)")
+    return(obj)
+}
+
+# ── Load and (optionally) filter objects ─────────────────────────────────────────
 objects <- list()
 for (i in seq_along(rds_files)) {
     message("Loading: ", rds_files[i])
-    objects[[i]] <- readRDS(rds_files[i])
-    message("  - Cells: ", ncol(objects[[i]]))
+    obj <- readRDS(rds_files[i])
+    obj <- filter_object(obj, samples_filter)
+    if (ncol(obj) > 0) {
+        objects[[length(objects) + 1]] <- obj
+    } else {
+        message("  Skipping — no cells remaining after filter")
+    }
+}
+
+if (length(objects) == 0) {
+    stop("No cells remaining after filtering — cannot create merged object")
 }
 
 # Merge objects

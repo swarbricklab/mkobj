@@ -39,3 +39,21 @@ params:
   # - "auto": detect automatically (default)
   # - "Gene Expression": use gene expression only
   modality: "auto"
+
+# ── Subsets (optional) ─────────────────────────────────────────────────────────
+# Define named subsets to produce multiple merged objects in a single run.
+# Each subset gets its own output directory: {outs.results}/{subset_name}/
+# If omitted, a single merged object is produced at {outs.results}/.
+#
+# Each subset can optionally specify:
+#   captures: path to a subset-specific captures CSV (overrides deps.captures)
+#   samples:  path to a samples CSV for cell-level filtering
+#
+# subsets:
+#   all:
+#     samples: "config/mkobj/samples_all.csv"
+#   cohort_a:
+#     captures: "config/mkobj/captures_cohort_a.csv"
+#     samples: "config/mkobj/samples_cohort_a.csv"
+#   cohort_b:
+#     samples: "config/mkobj/samples_cohort_b.csv"

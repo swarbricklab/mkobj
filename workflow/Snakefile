@@ -5,25 +5,61 @@ import pandas as pd
 out_dir = Path(config['outs']['results'])
 log_dir = Path(config['outs']['logs'])
 
-# Load capture list
+# Load global capture list
 captures = pd.read_csv(config['deps']['captures'])['capture'].tolist()
 
-# Include rule files - common utilities
-include: "rules/common.smk"
+# ── Subset definitions ──────────────────────────────────────────────────────────
+# If 'subsets' is defined in config, each named subset can optionally override
+# the captures list and/or supply a samples.csv for cell-level filtering.
+# Per-capture objects are created once and shared across subsets; filtering
+# is applied at merge time.
+# If 'subsets' is not defined, the module behaves as before (single merged output).
+if 'subsets' in config:
+    subsets_config = config['subsets']
+    use_subsets = True
+else:
+    subsets_config = {}
+    use_subsets = False
 
-# Seurat rules
+# Per-subset captures and samples file
+subset_captures = {}
+subset_samples = {}
+
+if use_subsets:
+    for name, sub_conf in subsets_config.items():
+        if 'captures' in sub_conf:
+            subset_captures[name] = pd.read_csv(sub_conf['captures'])['capture'].tolist()
+        else:
+            subset_captures[name] = captures
+        subset_samples[name] = sub_conf.get('samples', config['deps'].get('samples', ''))
+    subset_names = list(subsets_config.keys())
+
+    # Union of all subset captures — these are the per-capture objects we need
+    captures = sorted(set(c for caps in subset_captures.values() for c in caps))
+else:
+    subset_names = []
+
+# Constrain the subset wildcard to only match defined subset names
+wildcard_constraints:
+    subset = "|".join(subset_names) if subset_names else "NOSUBSETS"
+
+# Include rule files
+include: "rules/common.smk"
 include: "rules/create_seurat.smk"
 include: "rules/merge.smk"
-
-# AnnData rules
 include: "rules/create_anndata.smk"
 include: "rules/merge_anndata.smk"
 
-# Targets - merged outputs for both formats
-seurat_target = out_dir / "merged.qs"
-anndata_target = out_dir / "merged.h5ad"
+# ── Targets ──────────────────────────────────────────────────────────────────────
+targets = []
 
-targets = [seurat_target, anndata_target]
+if use_subsets:
+    for name in subset_names:
+        targets.append(out_dir / name / "merged.qs")
+        targets.append(out_dir / name / "merged.h5ad")
+else:
+    targets.append(out_dir / "merged.qs")
+    targets.append(out_dir / "merged.h5ad")
 
 rule all:
     input:
