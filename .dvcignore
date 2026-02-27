@@ -1,8 +1,0 @@
-# DVC ignore file
-# Files and directories that DVC should ignore
-
-.snakemake/
-.git/
-__pycache__/
-*.pyc
-.DS_Store
