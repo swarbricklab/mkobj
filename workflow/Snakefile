@@ -48,6 +48,7 @@ include: "rules/common.smk"
 include: "rules/create_seurat.smk"
 include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
+include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
 
 # ── Targets ──────────────────────────────────────────────────────────────────────

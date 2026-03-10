@@ -14,7 +14,7 @@ rule create_anndata_object:
     input:
         matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
     output:
-        h5ad = temp(out_dir / "per_capture/{capture}.h5ad")
+        h5ad = temp(out_dir / "per_capture_raw/{capture}.h5ad")
     log:
         log_dir / "create_anndata/{capture}.log"
     params:

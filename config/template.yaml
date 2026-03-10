@@ -28,6 +28,10 @@ deps:
   # Each capture should have {capture}/ambient_summary.csv
   ambient: "data/ambient"
 
+  # [Optional] Path to lineage markers CSV for cross-lineage doublet detection
+  # Expected format: CSV with cell types as headers/index and marker genes listed.
+  lineage_markers: ""
+
 # Outputs
 outs:
   results: "data/objects"
@@ -39,6 +43,12 @@ params:
   # - "auto": detect automatically (default)
   # - "Gene Expression": use gene expression only
   modality: "auto"
+
+  # Scrublet threshold for predicting standard computational doublets
+  scrublet_threshold: 0.2
+
+  # Cross-lineage score threshold: > 0.7 markers of >1 lineage flags a doublet
+  cross_lineage_threshold: 0.7
 
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.

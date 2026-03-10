@@ -29,6 +29,7 @@ Edit the config file to match your dataset structure.
 | `deps.demux` | Path to sample assignment files from SNP demux. Each capture directory should contain `cell_assignment.tsv` |
 | `deps.annotation` | Path to cell type annotations. Each capture directory should contain `cell_types.csv` |
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
+| `deps.lineage_markers` | Path to a lineage markers CSV used for cross-lineage doublet detection |
 
 ### Outputs
 
@@ -42,6 +43,8 @@ Edit the config file to match your dataset structure.
 | Key | Description | Default |
 |-----|-------------|---------|
 | `params.modality` | How to handle multimodal data (`auto`, `Gene Expression`) | `auto` |
+| `params.scrublet_threshold` | Threshold for flagging standard computational scrublet doublets | `0.2` |
+| `params.cross_lineage_threshold` | Ratio of markers expressed to flag crossing over an explicit lineage | `0.7` |
 
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).
