@@ -234,6 +234,11 @@ colnames(obj) <- prefixed_barcodes
 # Add capture metadata
 obj$capture <- capture
 
+# Calculate QC metrics
+message("Computing QC metrics (percent.mt, percent.ribo)...")
+obj[["percent.mt"]] <- PercentageFeatureSet(obj, pattern = "^MT-|^mt-")
+obj[["percent.ribo"]] <- PercentageFeatureSet(obj, pattern = "^RPS|^RPL|^rps|^rpl")
+
 message("Saving Seurat object to: ", output_rds)
 saveRDS(obj, file = output_rds)
 message("Done creating Seurat object for capture: ", capture)

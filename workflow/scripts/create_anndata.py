@@ -275,6 +275,22 @@ adata.obs_names = prefixed_barcodes
 # Add capture metadata
 adata.obs['capture'] = capture
 
+# Calculate QC metrics
+logger.info("Computing QC metrics (nFeature, nCount, percent.mt, percent.ribo)...")
+adata.var['mt'] = adata.var['gene_name'].str.upper().str.startswith("MT-")
+adata.var['ribo'] = adata.var['gene_name'].str.upper().str.startswith(("RPS", "RPL"))
+sc.pp.calculate_qc_metrics(adata, qc_vars=['mt', 'ribo'], percent_top=None, log1p=False, inplace=True)
+
+# Rename to standard Seurat-like conventions for consistency across pipeline
+if 'total_counts' in adata.obs:
+    adata.obs['nCount_RNA'] = adata.obs['total_counts']
+if 'n_genes_by_counts' in adata.obs:
+    adata.obs['nFeature_RNA'] = adata.obs['n_genes_by_counts']
+if 'pct_counts_mt' in adata.obs:
+    adata.obs['percent.mt'] = adata.obs['pct_counts_mt']
+if 'pct_counts_ribo' in adata.obs:
+    adata.obs['percent.ribo'] = adata.obs['pct_counts_ribo']
+
 # Convert string columns with NA values to proper string type for h5ad compatibility
 # h5py can't handle mixed types or np.nan in string arrays
 for col in adata.obs.columns:
