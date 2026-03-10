@@ -1,12 +1,15 @@
-# Test configuration for mkseurat workflow
+# Test configuration for mkobj workflow
 # Used with run_test.sh for standalone testing
+#
+# Test data: two small captures (NeoMet_Pool_012_1, NeoMet_Pool_012_2)
+# imported via `dvc import` from swarbricklab/neochemo.
 
 deps:
   cellranger: "test/data/cellranger"
   captures: "test/data/captures.csv"
-  # demux: "test/data/demux"
-  # annotation: "test/data/annotation"
-  # ambient: "test/data/ambient"
+  demux: "test/data/demux"
+  annotation: "test/data/annotation"
+  ambient: "test/data/ambient"
 
 outs:
   results: "test/results"
