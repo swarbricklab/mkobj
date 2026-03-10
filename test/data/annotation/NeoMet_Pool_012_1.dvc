@@ -1,0 +1,13 @@
+md5: 689640a3a15ff39249108f1844dce948
+frozen: true
+deps:
+- path: data/sc/cellranger/annotation/NeoMet_Pool_012_1
+  repo:
+    url: git@github.com:swarbricklab/neochemo.git
+    rev_lock: b268507d216e0a8bed218a8435c318dbed03ae7f
+outs:
+- md5: 334b97cec58e502bb1b0583746a543ca.dir
+  size: 26263797
+  nfiles: 3
+  hash: md5
+  path: NeoMet_Pool_012_1
