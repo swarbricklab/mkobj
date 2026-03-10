@@ -45,6 +45,14 @@ Edit the config file to match your dataset structure.
 | `params.modality` | How to handle multimodal data (`auto`, `Gene Expression`) | `auto` |
 | `params.scrublet_threshold` | Threshold for flagging standard computational scrublet doublets | `0.2` |
 | `params.cross_lineage_threshold` | Ratio of markers expressed to flag crossing over an explicit lineage | `0.7` |
+| `params.min_counts` | Minimum total UMI counts per cell | `500` |
+| `params.max_counts` | Maximum total UMI counts per cell | `50000` |
+| `params.min_features` | Minimum number of genes detected per cell | `200` |
+| `params.max_features` | Maximum number of genes detected per cell | `null` (disabled) |
+| `params.max_pct_mt` | Maximum percent mitochondrial content | `60` |
+| `params.max_pct_ribo` | Maximum percent ribosomal content | `null` (disabled) |
+| `params.filter_doublets` | Remove cells flagged as `predicted_doublet` | `true` |
+| `params.min_cells_per_gene` | Minimum cells expressing a gene; genes below this are flagged `is_filtered` in `.var` rather than dropped | `3` |
 
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).

@@ -20,6 +20,16 @@ rds_files <- snakemake@input[["rds_files"]]
 output_file <- snakemake@output[["merged"]]
 samples_file <- snakemake@params[["samples_file"]]
 
+# QC filtering parameters
+min_counts <- snakemake@params[["min_counts"]]
+max_counts <- snakemake@params[["max_counts"]]
+min_features <- snakemake@params[["min_features"]]
+max_features <- snakemake@params[["max_features"]]
+max_pct_mt <- snakemake@params[["max_pct_mt"]]
+max_pct_ribo <- snakemake@params[["max_pct_ribo"]]
+filter_doublets <- snakemake@params[["filter_doublets"]]
+min_cells_per_gene <- snakemake@params[["min_cells_per_gene"]]
+
 message("Merging ", length(rds_files), " capture objects...")
 message("Output file: ", output_file)
 
@@ -102,6 +112,67 @@ if (length(objects) == 1) {
 }
 
 message("Merged object has ", ncol(merged_object), " cells total")
+
+# ── QC cell filtering ────────────────────────────────────────────────────────────
+n_before <- ncol(merged_object)
+keep <- rep(TRUE, n_before)
+meta <- merged_object[[]]
+
+if (!is.null(filter_doublets) && isTRUE(filter_doublets) && "predicted_doublet" %in% colnames(meta)) {
+    is_doublet <- !is.na(meta$predicted_doublet) & meta$predicted_doublet
+    message("  Doublet filter: flagged ", sum(is_doublet), " cells")
+    keep <- keep & !is_doublet
+}
+
+if (!is.null(min_counts) && "nCount_RNA" %in% colnames(meta)) {
+    fail <- meta$nCount_RNA < min_counts
+    message("  min_counts (", min_counts, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+if (!is.null(max_counts) && "nCount_RNA" %in% colnames(meta)) {
+    fail <- meta$nCount_RNA > max_counts
+    message("  max_counts (", max_counts, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+if (!is.null(min_features) && "nFeature_RNA" %in% colnames(meta)) {
+    fail <- meta$nFeature_RNA < min_features
+    message("  min_features (", min_features, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+if (!is.null(max_features) && "nFeature_RNA" %in% colnames(meta)) {
+    fail <- meta$nFeature_RNA > max_features
+    message("  max_features (", max_features, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+if (!is.null(max_pct_mt) && "percent.mt" %in% colnames(meta)) {
+    fail <- meta$percent.mt > max_pct_mt
+    message("  max_pct_mt (", max_pct_mt, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+if (!is.null(max_pct_ribo) && "percent.ribo" %in% colnames(meta)) {
+    fail <- meta$percent.ribo > max_pct_ribo
+    message("  max_pct_ribo (", max_pct_ribo, "): flagged ", sum(fail, na.rm = TRUE), " cells")
+    keep <- keep & !fail
+}
+
+merged_object <- merged_object[, keep]
+message("QC cell filtering: ", n_before, " -> ", ncol(merged_object), " cells (removed ", n_before - ncol(merged_object), ")")
+
+# ── Gene QC: flag low-expression genes (do NOT drop) ─────────────────────────────
+if (!is.null(min_cells_per_gene)) {
+    counts_mat <- GetAssayData(merged_object, assay = "RNA", layer = "counts")
+    cells_per_gene <- Matrix::rowSums(counts_mat > 0)
+    merged_object[["RNA"]]@meta.data$n_cells <- cells_per_gene
+    merged_object[["RNA"]]@meta.data$is_filtered <- cells_per_gene < min_cells_per_gene
+    n_filtered_genes <- sum(cells_per_gene < min_cells_per_gene)
+    message("Gene QC: flagged ", n_filtered_genes, "/", nrow(merged_object),
+            " genes as is_filtered (expressed in < ", min_cells_per_gene, " cells)")
+}
 
 # Save merged object
 message("Saving merged object to: ", output_file)
