@@ -82,6 +82,31 @@ params:
   # Leiden clustering resolutions to compute
   leiden_resolutions: [0.1, 0.3, 0.5, 1.0]
 
+# ── CELLxGENE schema formatting (optional) ─────────────────────────────────────
+# Maps existing metadata to CELLxGENE required fields.
+# See https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/
+#
+# column_map: schema_field -> existing obs column name
+# defaults: schema_field -> value to use when no mapping exists
+# feature_reference: organism NCBI taxon for var (default: NCBITaxon:9606)
+#
+# cellxgene:
+#   column_map:
+#     donor_id: "sample_id"
+#     tissue_ontology_term_id: "tissue_ontology"
+#   defaults:
+#     organism_ontology_term_id: "NCBITaxon:9606"
+#     assay_ontology_term_id: "EFO:0009922"
+#     disease_ontology_term_id: "PATO:0000461"
+#     sex_ontology_term_id: "unknown"
+#     development_stage_ontology_term_id: "unknown"
+#     self_reported_ethnicity_ontology_term_id: "unknown"
+#     cell_type_ontology_term_id: "unknown"
+#     tissue_ontology_term_id: "unknown"
+#     suspension_type: "cell"
+#     is_primary_data: true
+#   feature_reference: "NCBITaxon:9606"
+
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.
 # Each subset gets its own output directory: {outs.results}/{subset_name}/
