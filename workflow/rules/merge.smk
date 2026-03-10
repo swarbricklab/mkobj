@@ -21,7 +21,15 @@ if use_subsets:
         log:
             log_dir / "{subset}/merge_captures.log"
         params:
-            samples_file = lambda wc: subset_samples[wc.subset]
+            samples_file = lambda wc: subset_samples[wc.subset],
+            min_counts = config.get('params', {}).get('min_counts'),
+            max_counts = config.get('params', {}).get('max_counts'),
+            min_features = config.get('params', {}).get('min_features'),
+            max_features = config.get('params', {}).get('max_features'),
+            max_pct_mt = config.get('params', {}).get('max_pct_mt'),
+            max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
+            filter_doublets = config.get('params', {}).get('filter_doublets', True),
+            min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3)
         conda:
             "../envs/seurat.yaml"
         script:
@@ -39,7 +47,15 @@ else:
         log:
             log_dir / "merge_captures.log"
         params:
-            samples_file = config['deps'].get('samples', '')
+            samples_file = config['deps'].get('samples', ''),
+            min_counts = config.get('params', {}).get('min_counts'),
+            max_counts = config.get('params', {}).get('max_counts'),
+            min_features = config.get('params', {}).get('min_features'),
+            max_features = config.get('params', {}).get('max_features'),
+            max_pct_mt = config.get('params', {}).get('max_pct_mt'),
+            max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
+            filter_doublets = config.get('params', {}).get('filter_doublets', True),
+            min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3)
         conda:
             "../envs/seurat.yaml"
         script:

@@ -50,6 +50,25 @@ params:
   # Cross-lineage score threshold: > 0.7 markers of >1 lineage flags a doublet
   cross_lineage_threshold: 0.7
 
+  # ── QC cell filtering thresholds ──
+  # Cells outside these ranges are removed during merge.
+  # Set to null to disable a particular filter.
+  min_counts: 500
+  max_counts: 50000
+  min_features: 200
+  max_features: null
+  max_pct_mt: 60
+  max_pct_ribo: null
+
+  # Remove cells flagged as predicted_doublet (from Phase 2.2 doublet detection)
+  filter_doublets: true
+
+  # ── Gene filtering ──
+  # Minimum number of cells expressing a gene for it to pass QC.
+  # Genes below this threshold are NOT dropped — they are flagged
+  # as is_filtered = True in .var (CELLxGENE-compatible).
+  min_cells_per_gene: 3
+
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.
 # Each subset gets its own output directory: {outs.results}/{subset_name}/
