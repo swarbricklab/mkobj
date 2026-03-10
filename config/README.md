@@ -53,6 +53,10 @@ Edit the config file to match your dataset structure.
 | `params.max_pct_ribo` | Maximum percent ribosomal content | `null` (disabled) |
 | `params.filter_doublets` | Remove cells flagged as `predicted_doublet` | `true` |
 | `params.min_cells_per_gene` | Minimum cells expressing a gene; genes below this are flagged `is_filtered` in `.var` rather than dropped | `3` |
+| `params.n_top_genes` | Number of highly variable genes for PCA/UMAP | `2000` |
+| `params.hvg_batch_key` | Batch key for HVG selection (e.g. `pool_id`, `capture`) | `null` |
+| `params.n_pcs` | Number of principal components | `50` |
+| `params.leiden_resolutions` | Leiden clustering resolutions to compute | `[0.1, 0.3, 0.5, 1.0]` |
 
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).
