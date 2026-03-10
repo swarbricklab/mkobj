@@ -13,3 +13,5 @@ dependencies:
   - numpy
   - scipy
   - h5py
+  - leidenalg
+  - igraph

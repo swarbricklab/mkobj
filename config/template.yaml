@@ -69,6 +69,19 @@ params:
   # as is_filtered = True in .var (CELLxGENE-compatible).
   min_cells_per_gene: 3
 
+  # ── Data transformation & embedding ──
+  # Number of highly variable genes for PCA/UMAP
+  n_top_genes: 2000
+
+  # Batch key for HVG selection (e.g. "pool_id", "capture"). null = no batch correction.
+  hvg_batch_key: null
+
+  # Number of principal components
+  n_pcs: 50
+
+  # Leiden clustering resolutions to compute
+  leiden_resolutions: [0.1, 0.3, 0.5, 1.0]
+
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.
 # Each subset gets its own output directory: {outs.results}/{subset_name}/
