@@ -58,6 +58,24 @@ Edit the config file to match your dataset structure.
 | `params.n_pcs` | Number of principal components | `50` |
 | `params.leiden_resolutions` | Leiden clustering resolutions to compute | `[0.1, 0.3, 0.5, 1.0]` |
 
+### CELLxGENE formatting (optional)
+
+The `cellxgene` config block controls how the final `cellxgene.h5ad` is formatted for upload.
+
+| Key | Description |
+|-----|-------------|
+| `cellxgene.column_map` | Dict mapping CELLxGENE schema field names to existing `obs` column names |
+| `cellxgene.defaults` | Dict of default values for required schema fields when no mapping exists |
+| `cellxgene.feature_reference` | Organism NCBI taxon ID for `var['feature_reference']` (default: `NCBITaxon:9606`) |
+
+Required CELLxGENE `obs` fields (set via `column_map` or `defaults`):
+`assay_ontology_term_id`, `cell_type_ontology_term_id`, `development_stage_ontology_term_id`,
+`disease_ontology_term_id`, `donor_id`, `is_primary_data`, `organism_ontology_term_id`,
+`self_reported_ethnicity_ontology_term_id`, `sex_ontology_term_id`, `suspension_type`,
+`tissue_ontology_term_id`.
+
+Fields not mapped and without a default are set to `"unknown"` with a warning.
+
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).
 

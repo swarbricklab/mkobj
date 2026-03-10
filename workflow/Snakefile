@@ -51,6 +51,7 @@ include: "rules/create_anndata.smk"
 include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
 include: "rules/process_merged.smk"
+include: "rules/format_cellxgene.smk"
 
 # ── Targets ──────────────────────────────────────────────────────────────────────
 targets = []
@@ -59,9 +60,11 @@ if use_subsets:
     for name in subset_names:
         targets.append(out_dir / name / "merged.qs")
         targets.append(out_dir / name / "processed.h5ad")
+        targets.append(out_dir / name / "cellxgene.h5ad")
 else:
     targets.append(out_dir / "merged.qs")
     targets.append(out_dir / "processed.h5ad")
+    targets.append(out_dir / "cellxgene.h5ad")
 
 rule all:
     input:
