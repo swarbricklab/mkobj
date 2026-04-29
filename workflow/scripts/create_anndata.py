@@ -66,23 +66,34 @@ def get_valid_samples(capture: str, samples_file: str) -> list | None:
     return valid_samples
 
 
-def load_assignments(capture: str, barcodes: list, assignment_root: str) -> pd.DataFrame:
-    """Load sample assignments for cells."""
+def load_assignments(capture: str, barcodes: list, assignment_root: str,
+                     valid_samples: list | None = None) -> pd.DataFrame:
+    """Load sample assignments for cells.
+
+    When no demux assignment file is available, fall back to the sole sample
+    listed for this capture in samples.csv (single-sample capture); otherwise
+    fall back to the capture name.
+    """
+    if valid_samples is not None and len(valid_samples) == 1:
+        fallback_sample = valid_samples[0]
+    else:
+        fallback_sample = capture
+
     if not assignment_root:
-        logger.info("No assignment root configured. Using capture as sample ID.")
+        logger.info(f"No assignment root configured. Using {fallback_sample} as sample ID.")
         return pd.DataFrame({
             'status': ['singlet'] * len(barcodes),
-            'sample_id': [capture] * len(barcodes)
+            'sample_id': [fallback_sample] * len(barcodes)
         }, index=barcodes)
     
     assignment_path = Path(assignment_root) / capture / "cell_assignment.tsv"
     logger.info(f"Looking for assignments at: {assignment_path}")
     
     if not assignment_path.exists():
-        logger.info("No sample assignments found. Using capture as sample ID.")
+        logger.info(f"No sample assignments found. Using {fallback_sample} as sample ID.")
         return pd.DataFrame({
             'status': ['singlet'] * len(barcodes),
-            'sample_id': [capture] * len(barcodes)
+            'sample_id': [fallback_sample] * len(barcodes)
         }, index=barcodes)
     
     assignments = pd.read_csv(assignment_path, sep='\t', dtype={'assignment': str, 'status': str})
@@ -210,8 +221,12 @@ logger.info(f"Created AnnData object with {adata.n_obs} cells and {adata.n_vars}
 # Get barcodes for metadata attachment
 barcodes = adata.obs_names.tolist()
 
+# Determine valid samples up front so load_assignments can use it as a fallback
+# for single-sample captures with no demux output.
+valid_samples = get_valid_samples(capture, samples_file)
+
 # Load and attach metadata
-assignments = load_assignments(capture, barcodes, assignment_root)
+assignments = load_assignments(capture, barcodes, assignment_root, valid_samples)
 annotations = load_annotations(capture, annotation_root)
 ambient = load_ambient(capture, ambient_root)
 
@@ -224,8 +239,6 @@ for df in [assignments, annotations, ambient]:
             adata.obs[col] = df_aligned[col].values
 
 # Subset cells based on samples.csv if provided
-valid_samples = get_valid_samples(capture, samples_file)
-
 if valid_samples is not None:
     logger.info(f"\nFiltering cells for capture: {capture}")
     n_input = adata.n_obs

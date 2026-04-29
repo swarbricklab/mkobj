@@ -65,12 +65,21 @@ get_valid_samples <- function(capture, samples_file) {
 }
 
 # Helper function to load sample assignments
-load_assignments <- function(capture, barcodes, assignment_root) {
+load_assignments <- function(capture, barcodes, assignment_root, valid_samples = NULL) {
+    # Default sample_id when no demux assignment is available.
+    # If samples.csv lists exactly one sample for this capture (single-sample capture),
+    # use that sample_id; otherwise fall back to the capture name.
+    fallback_sample <- if (!is.null(valid_samples) && length(valid_samples) == 1) {
+        valid_samples[1]
+    } else {
+        capture
+    }
+
     if (is.null(assignment_root) || assignment_root == "") {
-        message("No assignment root configured. Using capture as sample ID.")
+        message("No assignment root configured. Using ", fallback_sample, " as sample ID.")
         return(data.frame(
             status = rep("singlet", length(barcodes)),
-            sample_id = rep(capture, length(barcodes)),
+            sample_id = rep(fallback_sample, length(barcodes)),
             row.names = barcodes
         ))
     }
@@ -79,10 +88,10 @@ load_assignments <- function(capture, barcodes, assignment_root) {
     message("Looking for assignments at: ", assignment_path)
     
     if (!file.exists(assignment_path)) {
-        message("No sample assignments found. Using capture as sample ID.")
+        message("No sample assignments found. Using ", fallback_sample, " as sample ID.")
         return(data.frame(
             status = rep("singlet", length(barcodes)),
-            sample_id = rep(capture, length(barcodes)),
+            sample_id = rep(fallback_sample, length(barcodes)),
             row.names = barcodes
         ))
     }
@@ -182,15 +191,17 @@ message("Created Seurat object with ", ncol(obj), " cells and ", nrow(obj), " fe
 # Get barcodes for metadata attachment
 barcodes <- colnames(obj)
 
+# Determine valid samples up front so load_assignments can use it as a fallback
+# for single-sample captures with no demux output.
+valid_samples <- get_valid_samples(capture, samples_file)
+
 # Load and attach metadata
 obj <- obj %>%
-    AddMetaData(metadata = load_assignments(capture, barcodes, assignment_root)) %>%
+    AddMetaData(metadata = load_assignments(capture, barcodes, assignment_root, valid_samples)) %>%
     AddMetaData(metadata = load_annotations(capture, annotation_root)) %>%
     AddMetaData(metadata = load_ambient(capture, ambient_root))
 
 # Subset cells based on samples.csv if provided
-valid_samples <- get_valid_samples(capture, samples_file)
-
 if (!is.null(valid_samples)) {
     message("\nFiltering cells for capture: ", capture)
     n_input <- ncol(obj)
