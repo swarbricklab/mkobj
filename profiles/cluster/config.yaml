@@ -11,7 +11,7 @@ cluster-generic-submit-cmd: >-
   --time {resources.runtime}m
   --log-dir logs/joblogs/mkobj
   --tags workflow={resources.workflow},rule={rule}
-cluster-generic-status-cmd: "qxtat check --snakemake"
+cluster-generic-status-cmd: "qxtat check --snakemake --log-dir logs/joblogs/mkobj"
 cluster-generic-cancel-cmd: "qdel"
 
 # Software deployment
