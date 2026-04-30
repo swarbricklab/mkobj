@@ -15,3 +15,6 @@ dependencies:
   - h5py
   - leidenalg
   - igraph
+  # Required by sc.pp.scrublet() in detect_doublets when no explicit threshold
+  # is supplied (scanpy uses scikit-image's threshold_minimum to choose one).
+  - scikit-image

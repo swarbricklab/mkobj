@@ -11,7 +11,7 @@ cluster-generic-submit-cmd: >-
   --time {resources.runtime}m
   --log-dir logs/joblogs/mkobj
   --tags workflow={resources.workflow},rule={rule}
-cluster-generic-status-cmd: "qxtat check --snakemake"
+cluster-generic-status-cmd: "qxtat check --snakemake --log-dir logs/joblogs/mkobj"
 cluster-generic-cancel-cmd: "qdel"
 
 # Software deployment
@@ -54,3 +54,15 @@ set-resources:
     threads: 16
     mem_mb: 190000
     runtime: 120
+  detect_doublets:
+    threads: 4
+    mem_mb: 32000
+    runtime: 60
+  process_merged_anndata:
+    threads: 16
+    mem_mb: 190000
+    runtime: 240
+  format_cellxgene:
+    threads: 2
+    mem_mb: 32000
+    runtime: 60
