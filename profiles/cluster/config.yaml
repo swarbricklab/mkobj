@@ -54,3 +54,15 @@ set-resources:
     threads: 16
     mem_mb: 190000
     runtime: 120
+  detect_doublets:
+    threads: 4
+    mem_mb: 32000
+    runtime: 60
+  process_merged_anndata:
+    threads: 16
+    mem_mb: 190000
+    runtime: 240
+  format_cellxgene:
+    threads: 2
+    mem_mb: 32000
+    runtime: 60
