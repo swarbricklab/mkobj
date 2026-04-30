@@ -9,8 +9,9 @@
 !/resources/*.dvc
 !/resources/.gitignore
 
-# Test results
+# Test outputs
 /test/results/
+/test/logs/
 
 # Logs
 logs/
@@ -28,3 +29,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# VS Code
+mkobj.code-workspace
