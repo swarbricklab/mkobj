@@ -127,7 +127,7 @@ else:
     if ab_present:
         logger.info("AB modality present in all captures")
         # Check if all AB features are the same
-        ab_features = [obj.uns.get('AB_features', []) for obj in objects]
+        ab_features = [list(obj.uns.get('AB_features', [])) for obj in objects]
         if all(f == ab_features[0] for f in ab_features):
             merged.uns['AB_features'] = ab_features[0]
         else:
