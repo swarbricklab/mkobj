@@ -1,0 +1,13 @@
+md5: c8e1a3af389a1930313a5c106bfab56d
+frozen: true
+deps:
+- path: data/sc/cellranger/count/predemux/NeoMet_Pool_012_1
+  repo:
+    url: git@github.com:swarbricklab/neochemo.git
+    rev_lock: b268507d216e0a8bed218a8435c318dbed03ae7f
+outs:
+- md5: 12992bfc9f1fe759bc2198bacc7ae960.dir
+  size: 12033441
+  nfiles: 3
+  hash: md5
+  path: NeoMet_Pool_012_1

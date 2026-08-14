@@ -1,13 +1,23 @@
 #!/bin/bash
-# Run mkseurat workflow in standalone mode (for testing)
+# Run mkobj workflow in standalone mode (for testing)
+# Executes on a compute node via qxub
 
 set -e
-eval "$(conda shell.bash hook)"
-conda activate snakemake_7.32.4
 
-workflow_profile="--workflow-profile profiles/workflow"
+# Pre-create conda envs on login node (compute nodes lack internet)
+qx --env snakemake_8.30.0 --mem 16GB  --queue copyq -- \
+    snakemake \
+        --snakefile workflow/Snakefile \
+        --configfile config/test.yaml \
+        --software-deployment-method conda \
+        --conda-create-envs-only
 
-snakemake $workflow_profile \
-    --snakefile workflow/Snakefile \
-    --configfile config/test.yaml \
-    "$@"
+# Run workflow on a compute node
+
+qx --env snakemake_8.30.0 --mem 16GB --cpus 4 --runtime 1h -- \
+    snakemake \
+        --snakefile workflow/Snakefile \
+        --configfile config/test.yaml \
+        --software-deployment-method conda \
+        --cores 4 \
+        "$@"

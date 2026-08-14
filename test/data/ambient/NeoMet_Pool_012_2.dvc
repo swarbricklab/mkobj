@@ -1,0 +1,13 @@
+md5: 56fed46b745a4903bc9cdf9a8f839fb5
+frozen: true
+deps:
+- path: data/snp/demux/vireo/NeoMet_Pool_012_2
+  repo:
+    url: git@github.com:swarbricklab/neochemo.git
+    rev_lock: b268507d216e0a8bed218a8435c318dbed03ae7f
+outs:
+- md5: e0df23e7d2d4f9287999ed83d527e810.dir
+  size: 506722
+  nfiles: 11
+  hash: md5
+  path: NeoMet_Pool_012_2
