@@ -209,8 +209,17 @@ message("QC cell filtering: ", n_before, " -> ", ncol(merged_object), " cells (r
 
 # ── Gene QC: flag low-expression genes (do NOT drop) ─────────────────────────────
 if (!is.null(min_cells_per_gene)) {
-    counts_mat <- GetAssayData(merged_object, assay = "RNA", layer = "counts")
-    cells_per_gene <- Matrix::rowSums(counts_mat > 0)
+    # Accumulate per layer rather than via GetAssayData(layer = "counts"):
+    # that errors with "GetAssayData doesn't work for multiple layers in v5
+    # assay" whenever the join above was skipped for the 2^31-1 limit. Summing
+    # per-gene cell counts across layers is equivalent to the joined result,
+    # and this path also covers the ordinary single-layer case.
+    counts_layers <- SeuratObject::Layers(merged_object[["RNA"]], search = "counts")
+    cells_per_gene <- Reduce(`+`, lapply(counts_layers, function(l) {
+        Matrix::rowSums(SeuratObject::LayerData(
+            merged_object[["RNA"]], layer = l
+        ) > 0)
+    }))
     merged_object[["RNA"]]@meta.data$n_cells <- cells_per_gene
     merged_object[["RNA"]]@meta.data$is_filtered <- cells_per_gene < min_cells_per_gene
     n_filtered_genes <- sum(cells_per_gene < min_cells_per_gene)
