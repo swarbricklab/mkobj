@@ -17,6 +17,19 @@ cluster-generic-cancel-cmd: "qdel"
 # Software deployment
 software-deployment-method: [conda, apptainer]
 
+# Build conda envs in the shared a56 cache rather than ./.snakemake/conda, so
+# every dataset repo using mkobj reuses one copy instead of building its own
+# (the seurat env alone is ~1.8 GB).
+#
+# This matches the sibling workflows, which set it in their own NCI profiles:
+#   snp_demux              profiles/global/nci/config.yaml
+#   chromium-preprocessing profiles/global/nci/config.yaml
+#
+# Note XDG_CONFIG_DIRS does not supply this: there is no `snakemake/` directory
+# under /g/data/a56/config/xdg, and passing `--profile <path>` (as run_mod.sh
+# does) bypasses XDG profile lookup regardless.
+conda-prefix: /g/data/a56/conda/snakecache/
+
 # Job scheduling
 jobs: 1000
 max-status-checks-per-second: 10
