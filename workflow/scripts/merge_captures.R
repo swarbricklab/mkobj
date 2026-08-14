@@ -100,14 +100,58 @@ if (length(objects) == 1) {
         y = objects[2:length(objects)]
     )
     
-    # Join layers for RNA assay
-    message("Joining RNA layers...")
-    merged_object[["RNA"]] <- JoinLayers(merged_object[["RNA"]])
-    
-    # Join layers for AB assay if present
+    # Join layers, unless doing so would overflow a dgCMatrix.
+    #
+    # JoinLayers cbinds the per-capture layers into ONE sparse matrix. A
+    # dgCMatrix stores its column pointer `p` as 32-bit integers, so the total
+    # number of non-zero entries cannot exceed 2^31-1 (~2.15e9). Past that the
+    # join dies with:
+    #
+    #   Error in cbind.Matrix(x, y, deparse.level = 0L) :
+    #     p[length(p)] cannot exceed 2^31-1
+    #
+    # which is a hard structural limit, not a memory shortage — it is reached
+    # with plenty of RAM free and no amount of extra memory helps. A
+    # 1,043,811-cell x 36,601-gene atlas hits 2.78e9 non-zeros, 1.3x over.
+    # (The AnnData branch is unaffected: scipy/h5ad use int64 indices.)
+    #
+    # Seurat v5 assays are valid with layers left split, so above the limit we
+    # keep them split and warn rather than failing the run. Callers that need a
+    # single matrix should subset first, or use a BPCells-backed assay.
+    nnz_limit <- 2^31 - 1
+    layer_nnz <- function(assay) {
+        sum(vapply(
+            SeuratObject::Layers(assay, search = "counts"),
+            function(l) length(SeuratObject::LayerData(assay, layer = l)@x),
+            numeric(1)
+        ))
+    }
+
+    rna_nnz <- layer_nnz(merged_object[["RNA"]])
+    if (rna_nnz < nnz_limit) {
+        message("Joining RNA layers...")
+        merged_object[["RNA"]] <- JoinLayers(merged_object[["RNA"]])
+    } else {
+        warning(
+            "RNA layers left SPLIT: ", format(rna_nnz, big.mark = ","),
+            " non-zero entries exceeds the dgCMatrix limit of ",
+            format(nnz_limit, big.mark = ","), ". ",
+            "JoinLayers would fail with 'p[length(p)] cannot exceed 2^31-1'."
+        )
+    }
+
+    # Join layers for AB assay if present (same limit applies)
     if ("AB" %in% names(merged_object@assays)) {
-        message("Joining AB layers...")
-        merged_object[["AB"]] <- JoinLayers(merged_object[["AB"]])
+        ab_nnz <- layer_nnz(merged_object[["AB"]])
+        if (ab_nnz < nnz_limit) {
+            message("Joining AB layers...")
+            merged_object[["AB"]] <- JoinLayers(merged_object[["AB"]])
+        } else {
+            warning(
+                "AB layers left SPLIT: ", format(ab_nnz, big.mark = ","),
+                " non-zero entries exceeds the dgCMatrix limit."
+            )
+        }
     }
 }
 
@@ -165,8 +209,17 @@ message("QC cell filtering: ", n_before, " -> ", ncol(merged_object), " cells (r
 
 # ── Gene QC: flag low-expression genes (do NOT drop) ─────────────────────────────
 if (!is.null(min_cells_per_gene)) {
-    counts_mat <- GetAssayData(merged_object, assay = "RNA", layer = "counts")
-    cells_per_gene <- Matrix::rowSums(counts_mat > 0)
+    # Accumulate per layer rather than via GetAssayData(layer = "counts"):
+    # that errors with "GetAssayData doesn't work for multiple layers in v5
+    # assay" whenever the join above was skipped for the 2^31-1 limit. Summing
+    # per-gene cell counts across layers is equivalent to the joined result,
+    # and this path also covers the ordinary single-layer case.
+    counts_layers <- SeuratObject::Layers(merged_object[["RNA"]], search = "counts")
+    cells_per_gene <- Reduce(`+`, lapply(counts_layers, function(l) {
+        Matrix::rowSums(SeuratObject::LayerData(
+            merged_object[["RNA"]], layer = l
+        ) > 0)
+    }))
     merged_object[["RNA"]]@meta.data$n_cells <- cells_per_gene
     merged_object[["RNA"]]@meta.data$is_filtered <- cells_per_gene < min_cells_per_gene
     n_filtered_genes <- sum(cells_per_gene < min_cells_per_gene)
