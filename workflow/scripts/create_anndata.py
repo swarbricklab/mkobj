@@ -168,8 +168,38 @@ def read_10x_mtx_multimodal(matrix_dir: Path) -> dict:
     barcodes = pd.read_csv(barcodes_file, sep='\t', header=None, names=['barcode'])
     
     # Read matrix
-    matrix = mmread(matrix_file).T.tocsr()  # Transpose: cells x features
-    
+    #
+    # scipy.io.mmread returns int64 for an integer MatrixMarket file — 8 bytes
+    # per non-zero to hold UMI counts that never exceed a few tens of thousands.
+    # Downcast at the door, before .tocsr() allocates a second int64 array:
+    #
+    #   * it halves the data array in every object downstream. On the 1.04M-cell
+    #     merged atlas (2.78e9 non-zeros) that is 20.7GB -> 10.4GB, in the
+    #     per-capture objects, both merges, and process_merged_data's
+    #     `layers["counts"] = adata.X.copy()`.
+    #   * float32 is what scanpy normalises into anyway, and what the CELLxGENE
+    #     schema requires of the raw matrix — so format_cellxgene's promotion to
+    #     raw.X becomes a no-op instead of a full conversion.
+    #
+    # float32 holds every integer exactly up to 2**24 (16,777,216); the largest
+    # count observed across this registry is ~47k. Warn rather than round
+    # silently if that ever stops being true.
+    matrix = mmread(matrix_file)  # COO, features x cells
+    if matrix.dtype != np.float32:
+        largest = int(matrix.data.max()) if matrix.nnz else 0
+        if largest > 2 ** 24:
+            logger.warning(
+                f"Largest count {largest:,} exceeds the float32 exact-integer limit "
+                f"({2 ** 24:,}) — counts would be rounded; keeping {matrix.dtype}"
+            )
+        else:
+            logger.info(
+                f"Downcasting counts {matrix.dtype} -> float32 "
+                f"({matrix.nnz:,} non-zeros, max {largest:,})"
+            )
+            matrix.data = matrix.data.astype(np.float32)
+    matrix = matrix.T.tocsr()  # Transpose: cells x features
+
     # Check for multimodal data
     feature_types = features['feature_type'].unique()
     
