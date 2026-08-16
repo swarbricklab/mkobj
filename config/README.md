@@ -130,8 +130,10 @@ mask the gene. It is computed from the matrices, not taken from mkobj's `is_filt
 that flags low-expression genes without zeroing them, and the two are not interchangeable.
 `is_filtered` is kept as a non-schema column.
 
-Raw counts are promoted from `layers['counts']` to `raw.X` as `float32`, which is where
-the schema requires them when `X` holds normalized values. The layer is left in place.
+Raw counts are **moved** from `layers['counts']` to `raw.X` as `float32`, which is where
+the schema requires them when `X` holds normalized values. Moved rather than copied:
+keeping both would duplicate the count matrix in memory and on disk, which on a
+million-cell object is tens of GB for no benefit. Read them from `raw.X` downstream.
 
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).

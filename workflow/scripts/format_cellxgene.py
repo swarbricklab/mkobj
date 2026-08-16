@@ -233,15 +233,36 @@ if "organism_ontology_term_id" in adata.obs.columns:
 
 # ── 5. raw counts ────────────────────────────────────────────────────────────────
 # For UMI scRNA-seq the raw matrix is REQUIRED, and MUST live in raw.X when a
-# normalized matrix is in X. mkobj carries counts in layers['counts'], so
-# promote them. The layer stays put — extra layers are allowed.
+# normalized matrix is in X. mkobj carries counts in layers['counts'], so MOVE
+# them there — move, not copy, for two reasons at atlas scale:
+#
+#   * .astype() and the (data, indices, indptr) constructor BOTH copy the index
+#     arrays, not just `data` — scipy re-validates and may re-pick the index
+#     dtype, so copy=False does not help. With 2.8e9 non-zeros and int64
+#     indices that is +31 GB for a change that only needs +10. Reassigning
+#     `.data` converts in place instead: `dtype` is derived from it, and the
+#     int64 array is freed as soon as the new one replaces it.
+#   * leaving the layer in place would duplicate the counts in the object,
+#     costing another ~31 GB in memory and on disk for no benefit — raw.X is
+#     where the schema wants them and where CELLxGENE reads them from.
+def _as_float32_counts(matrix):
+    """float32 sparse counts, converting in place where possible."""
+    if not sp.issparse(matrix):
+        return sp.csr_matrix(matrix, dtype=np.float32)
+    if matrix.dtype != np.float32:
+        matrix.data = matrix.data.astype(np.float32)
+    return matrix
+
+
 if adata.raw is None and "counts" in adata.layers:
-    counts = adata.layers["counts"]
-    if not sp.issparse(counts):
-        counts = sp.csr_matrix(counts)
-    counts = counts.astype(np.float32)
-    adata.raw = ad.AnnData(X=counts, obs=adata.obs[[]].copy(), var=adata.var[[]].copy())
-    logger.info("  Populated raw.X from layers['counts'] as float32 (schema requires raw in raw.X)")
+    raw_X = _as_float32_counts(adata.layers["counts"])
+    del adata.layers["counts"]
+    adata.raw = ad.AnnData(X=raw_X, obs=adata.obs[[]].copy(), var=adata.var[[]].copy())
+    del raw_X
+    logger.info(
+        "  Moved layers['counts'] -> raw.X as float32 "
+        "(schema requires raw in raw.X; keeping both would duplicate the matrix)"
+    )
 elif adata.raw is None:
     logger.warning("  No raw counts available — schema REQUIRES a raw matrix for UMI scRNA-seq")
 
@@ -262,9 +283,26 @@ if dropped:
 # WITHOUT zeroing them, so the two are not interchangeable — reusing it here
 # would claim masking that has not happened. Report only genes that really are
 # all-zero in X while non-zero in raw.
+def _columns_with_signal(matrix, chunk_rows=100_000):
+    """Per column: does any cell hold a non-zero value?
+
+    Chunked over rows because `abs(matrix)` materialises a full copy of the
+    data array — 10 GB on a 2.8e9-non-zero atlas, on top of everything else
+    already resident. Row-slicing a CSR copies only the block, and most
+    columns declare themselves in the first chunk.
+    """
+    present = np.zeros(matrix.shape[1], dtype=bool)
+    for start in range(0, matrix.shape[0], chunk_rows):
+        block = matrix[start:start + chunk_rows]
+        present |= np.asarray(abs(block).sum(axis=0)).ravel() > 0
+        if present.all():
+            break
+    return present
+
+
 if adata.raw is not None:
-    x_nonzero = np.asarray(abs(adata.X).sum(axis=0)).ravel() > 0
-    raw_nonzero = np.asarray(abs(adata.raw.X).sum(axis=0)).ravel() > 0
+    x_nonzero = _columns_with_signal(adata.X)
+    raw_nonzero = _columns_with_signal(adata.raw.X)
     feature_is_filtered = (~x_nonzero) & raw_nonzero
 else:
     # "When a raw matrix is not present, the value for all features MUST be False."
