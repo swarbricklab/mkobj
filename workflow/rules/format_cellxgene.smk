@@ -27,7 +27,8 @@ if use_subsets:
         log:
             log_dir / "{subset}/format_cellxgene.log"
         params:
-            cellxgene = _cellxgene_params
+            cellxgene = _cellxgene_params,
+            subset = lambda wildcards: wildcards.subset
         conda:
             "../envs/scanpy.yaml"
         script:

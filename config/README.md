@@ -101,6 +101,16 @@ Required `obs` fields: `assay_ontology_term_id`, `cell_type_ontology_term_id`,
 
 Required `uns` fields: `organism_ontology_term_id`, `title`.
 
+The `cellxgene` block is global, but a `subsets:` run emits several objects and `title`
+must distinguish the datasets in a collection. Any `uns` string may contain the literal
+`{subset}`, which is replaced with the subset name:
+
+```yaml
+cellxgene:
+  uns:
+    title: "BRCA consortium chromium — {subset}"
+```
+
 `organism_ontology_term_id` is a `uns` field, not `obs` — it moved in schema 6.0.0. A value
 left in `obs` by an older config is migrated automatically.
 

@@ -130,7 +130,9 @@ params:
 #     donor_id: "pooled"
 #   uns:
 #     organism_ontology_term_id: "NCBITaxon:9606"
-#     title: "My dataset — all cells"
+#     # The literal {subset} is replaced with the subset name, so one config
+#     # can title every object a `subsets:` run produces.
+#     title: "My dataset — {subset}"
 
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.

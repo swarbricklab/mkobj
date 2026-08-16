@@ -52,11 +52,22 @@ input_h5ad = snakemake.input.processed
 output_h5ad = snakemake.output.cellxgene
 
 cellxgene_cfg = snakemake.params.get("cellxgene", {}) or {}
+subset = snakemake.params.get("subset", "") or ""
 
 metadata_tables = cellxgene_cfg.get("metadata", []) or []
 column_map = cellxgene_cfg.get("column_map", {}) or {}
 defaults = cellxgene_cfg.get("defaults", {}) or {}
 uns_cfg = cellxgene_cfg.get("uns", {}) or {}
+
+# The cellxgene block is global, but uns['title'] must distinguish the datasets
+# within a collection — and with `subsets:` one run emits several. Allow the
+# literal {subset} in any uns string so a single config can title them all.
+# Plain str.replace, not str.format, so other braces pass through untouched.
+if subset:
+    uns_cfg = {
+        k: v.replace("{subset}", subset) if isinstance(v, str) else v
+        for k, v in uns_cfg.items()
+    }
 
 logger.info(f"Formatting for CELLxGENE schema {SCHEMA_VERSION}: {input_h5ad}")
 adata = ad.read_h5ad(input_h5ad)
