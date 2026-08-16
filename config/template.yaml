@@ -83,29 +83,54 @@ params:
   leiden_resolutions: [0.1, 0.3, 0.5, 1.0]
 
 # ── CELLxGENE schema formatting (optional) ─────────────────────────────────────
-# Maps existing metadata to CELLxGENE required fields.
-# See https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/
+# Fills the fields required by CELLxGENE schema 7.1.0.
+# See https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/7.1.0/schema.md
 #
-# column_map: schema_field -> existing obs column name
-# defaults: schema_field -> value to use when no mapping exists
-# feature_reference: organism NCBI taxon for var (default: NCBITaxon:9606)
+# Three sources are applied in order, so a later one wins:
+#
+#   metadata    CSV join tables. `key` names an existing obs column; every
+#               other column in the CSV is written to obs under its own name.
+#               Unmatched rows are left unset and picked up by `defaults`.
+#               This is the way to bring in per-sample clinical metadata,
+#               per-capture assay chemistry, or a cell-type ontology map —
+#               each is just a join on a different obs column.
+#   column_map  schema_field -> existing obs column name (a rename).
+#   defaults    schema_field -> constant. Used both when the column is absent
+#               entirely and to fill rows a join did not match. Anything still
+#               unset becomes "unknown".
+#
+# organism_ontology_term_id and title are uns fields, not obs — set them under
+# `uns`. (organism moved obs -> uns in schema 6.0.0.)
+#
+# Not handled here, by design: experimental_condition_ontology_term_id and the
+# genetic_perturbation_* fields MUST NOT be present unless the dataset actually
+# has perturbations; array_col/array_row/in_tissue are Visium-only.
+#
+# var columns feature_biotype / feature_length / feature_name /
+# feature_reference / feature_type are annotated by CELLxGENE Discover and are
+# dropped if present — a curator MUST NOT supply them.
 #
 # cellxgene:
+#   metadata:
+#     - path: "config/mkobj/cellxgene_sample.csv"    # per-sample clinical metadata
+#       key: "sample_id"
+#     - path: "config/mkobj/cellxgene_capture.csv"   # per-capture assay chemistry
+#       key: "capture"
+#     - path: "config/mkobj/cell_type_cl.csv"        # label -> CL term
+#       key: "fine_cell_type"
 #   column_map:
-#     donor_id: "sample_id"
-#     tissue_ontology_term_id: "tissue_ontology"
+#     donor_id: "donor"
 #   defaults:
-#     organism_ontology_term_id: "NCBITaxon:9606"
-#     assay_ontology_term_id: "EFO:0009922"
 #     disease_ontology_term_id: "PATO:0000461"
-#     sex_ontology_term_id: "unknown"
-#     development_stage_ontology_term_id: "unknown"
-#     self_reported_ethnicity_ontology_term_id: "unknown"
-#     cell_type_ontology_term_id: "unknown"
-#     tissue_ontology_term_id: "unknown"
 #     suspension_type: "cell"
+#     tissue_type: "tissue"
 #     is_primary_data: true
-#   feature_reference: "NCBITaxon:9606"
+#     # Cells demultiplexing could not confidently assign to one individual;
+#     # the schema recommends "pooled" for exactly this case.
+#     donor_id: "pooled"
+#   uns:
+#     organism_ontology_term_id: "NCBITaxon:9606"
+#     title: "My dataset — all cells"
 
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.
