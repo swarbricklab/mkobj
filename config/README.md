@@ -61,20 +61,77 @@ Edit the config file to match your dataset structure.
 ### CELLxGENE formatting (optional)
 
 The `cellxgene` config block controls how the final `cellxgene.h5ad` is formatted for upload.
+It targets [schema 7.1.0](https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/7.1.0/schema.md).
 
 | Key | Description |
 |-----|-------------|
+| `cellxgene.metadata` | List of CSV join tables, each `{path, key}`. `key` names an existing `obs` column; every other column in the CSV is written to `obs` under its own name |
 | `cellxgene.column_map` | Dict mapping CELLxGENE schema field names to existing `obs` column names |
-| `cellxgene.defaults` | Dict of default values for required schema fields when no mapping exists |
-| `cellxgene.feature_reference` | Organism NCBI taxon ID for `var['feature_reference']` (default: `NCBITaxon:9606`) |
+| `cellxgene.defaults` | Dict of constants, used both when a column is absent and to fill rows a join did not match |
+| `cellxgene.uns` | Dict of `uns` values — `organism_ontology_term_id` and `title` |
 
-Required CELLxGENE `obs` fields (set via `column_map` or `defaults`):
-`assay_ontology_term_id`, `cell_type_ontology_term_id`, `development_stage_ontology_term_id`,
-`disease_ontology_term_id`, `donor_id`, `is_primary_data`, `organism_ontology_term_id`,
-`self_reported_ethnicity_ontology_term_id`, `sex_ontology_term_id`, `suspension_type`,
-`tissue_ontology_term_id`.
+The three sources are applied in order (`metadata`, then `column_map`, then `defaults`),
+so a later one wins. Anything still unset becomes `"unknown"`, which the schema permits
+for every ontology field that can be unavailable.
 
-Fields not mapped and without a default are set to `"unknown"` with a warning.
+#### Metadata joins
+
+`cellxgene.metadata` is the general way to bring outside metadata in. Because each table
+declares its own key, one mechanism covers joins at every grain:
+
+```yaml
+cellxgene:
+  metadata:
+    - path: "config/mkobj/cellxgene_sample.csv"    # per sample  — clinical/ontology terms
+      key: "sample_id"
+    - path: "config/mkobj/cellxgene_capture.csv"   # per capture — assay chemistry
+      key: "capture"
+    - path: "config/mkobj/cell_type_cl.csv"        # per cell    — label -> CL term
+      key: "fine_cell_type"
+```
+
+Join tables are rule inputs, so editing one re-runs the format step.
+
+#### Required fields
+
+Required `obs` fields: `assay_ontology_term_id`, `cell_type_ontology_term_id`,
+`development_stage_ontology_term_id`, `disease_ontology_term_id`, `donor_id`,
+`is_primary_data`, `self_reported_ethnicity_ontology_term_id`, `sex_ontology_term_id`,
+`suspension_type`, `tissue_ontology_term_id`, `tissue_type`.
+
+Required `uns` fields: `organism_ontology_term_id`, `title`.
+
+The `cellxgene` block is global, but a `subsets:` run emits several objects and `title`
+must distinguish the datasets in a collection. Any `uns` string may contain the literal
+`{subset}`, which is replaced with the subset name:
+
+```yaml
+cellxgene:
+  uns:
+    title: "BRCA consortium chromium — {subset}"
+```
+
+`organism_ontology_term_id` is a `uns` field, not `obs` — it moved in schema 6.0.0. A value
+left in `obs` by an older config is migrated automatically.
+
+`experimental_condition_ontology_term_id` and the `genetic_perturbation_*` fields are
+deliberately not written: the schema says they MUST NOT be present unless the dataset
+actually has perturbations. `array_col` / `array_row` / `in_tissue` are Visium-only.
+
+#### var and raw
+
+`feature_biotype`, `feature_length`, `feature_name`, `feature_reference` and `feature_type`
+are annotated by CELLxGENE Discover; a curator MUST NOT supply them, so they are dropped
+if present. Cell Ranger's own `feature_type` (`Gene Expression` / `Antibody Capture`) is
+preserved as `cellranger_feature_type` to avoid the reserved name.
+
+`var['feature_is_filtered']` means "zeroed in `X` but retained in `raw`", so Explorer can
+mask the gene. It is computed from the matrices, not taken from mkobj's `is_filtered` —
+that flags low-expression genes without zeroing them, and the two are not interchangeable.
+`is_filtered` is kept as a non-schema column.
+
+Raw counts are promoted from `layers['counts']` to `raw.X` as `float32`, which is where
+the schema requires them when `X` holds normalized values. The layer is left in place.
 
 When `modality` is `auto`, multimodal captures will use Gene Expression as the primary assay
 and store Antibody Capture data as an additional modality (Seurat: separate assay; AnnData: `obsm['AB']`).
