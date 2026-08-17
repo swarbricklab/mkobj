@@ -88,6 +88,49 @@ Cell Ranger matrices
    - Preserves multimodal data in `obsm` across captures
    - Output: `merged.h5ad`
 
+## Re-running with additional captures
+
+Adding a capture is **not** an incremental operation. The per-capture objects are
+`temp()` — `create_seurat_object` (`per_capture/{capture}.rds`),
+`create_anndata_object` (`per_capture_raw/{capture}.h5ad`) and `detect_doublets`
+(`per_capture/{capture}.h5ad`) — so they are deleted once a merge succeeds. On the
+next run they are missing, and every merge that consumes them has to rebuild them.
+
+Per-capture objects are **shared across subsets**, so the rebuild is not confined to
+the subset you edited. Adding one capture to subset A also regenerates the captures
+A shares with B, which in turn makes B's merged object out of date:
+
+```
+subset A: X, Y     add W to A only     rebuilds X, Y, W  and  Y, Z
+subset B: Y, Z          ────────►      re-merges BOTH A and B
+```
+
+Snakemake reports the two cases differently — `Set of input files has changed since
+last execution` for the subset you actually edited, and `Input files updated by
+another job` for the ones dragged in with it. Expect work proportional to the union
+of every subset that shares a capture with the one you changed, which in a
+well-connected dataset is most of it.
+
+Always check the size of the job before committing to it:
+
+```bash
+./modules/mkobj/run_mod.sh -n     # per-rule job counts
+```
+
+### Under DVC
+
+If the workflow is wrapped in a DVC stage, mark the stage's outputs `persist: true`:
+
+```yaml
+outs:
+  - data/objects:
+      persist: true
+```
+
+DVC deletes a stage's outputs *before* re-running it. Without `persist`, the merged
+objects for every subset are removed first — so nothing can be skipped even in
+principle, and a failed run leaves you with neither the new results nor the old ones.
+
 ## Configuration
 
 See the [configuration guide](config/README.md) for detailed instructions.
