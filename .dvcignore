@@ -1,3 +1,18 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Python bytecode caches.
+#
+# Datasets that embed this workflow as a submodule typically declare
+# `modules/mkobj/workflow` as a DVC dependency. Running the workflow writes .pyc
+# files into workflow/scripts/__pycache__/, and bytecode is not reproducible —
+# its size and contents depend on the interpreter version and on source mtimes —
+# so the dependency can never hash equal twice. The stage then reports
+# "changed deps" on every `dvc repro`, which for an expensive stage means either
+# re-running it or freezing it to work around the drift.
+#
+# Ignoring these loses nothing: .pyc files are derived from .py files that are
+# themselves tracked.
+__pycache__/
+*.py[cod]
