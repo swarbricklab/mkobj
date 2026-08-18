@@ -117,9 +117,35 @@ Always check the size of the job before committing to it:
 ./modules/mkobj/run_mod.sh -n     # per-rule job counts
 ```
 
+### Keeping the per-capture objects
+
+If a dataset grows by a few captures at a time, the rebuild is usually worse than the
+disk it saves. Snakemake's `--notemp` ignores the `temp()` declarations and leaves the
+per-capture objects in place:
+
+```bash
+./modules/mkobj/run_mod.sh --notemp
+```
+
+Every later addition is then genuinely incremental: only the new capture is built, and
+only the subsets whose capture list actually changed are re-merged — the cascade above
+does not happen, because the shared captures are still on disk and unchanged.
+
+The cost is one full set of per-capture objects. Measured on a 148-capture dataset:
+roughly 12 GB of `per_capture/` plus 35 GB of `per_capture_raw/`. Weigh that against
+recomputing three rules per capture across every connected subset.
+
+`temp()` is the better default for a one-shot build, where those files are pure waste.
+It is the wrong default for a dataset you keep adding to.
+
 ### Under DVC
 
-If the workflow is wrapped in a DVC stage, mark the stage's outputs `persist: true`:
+Datasets embedding mkobj as a submodule usually wrap it in a DVC stage. DVC removes a
+stage's outputs *before* re-running it, so with no further configuration the merged
+objects for every subset are deleted first — nothing can be skipped even in principle,
+and a failed run leaves neither the new results nor the old ones.
+
+`persist: true` on the stage outputs prevents that deletion:
 
 ```yaml
 outs:
@@ -127,9 +153,28 @@ outs:
       persist: true
 ```
 
-DVC deletes a stage's outputs *before* re-running it. Without `persist`, the merged
-objects for every subset are removed first — so nothing can be skipped even in
-principle, and a failed run leaves you with neither the new results nor the old ones.
+**But check your `cache.type` first.** `persist` does not simply skip the removal — in
+`Stage.remove_outs()` it substitutes `unprotect` for `remove`, and unprotecting a
+symlinked or hardlinked file means byte-copying it back into the workspace. With
+`cache.type = hardlink,symlink` the pre-run step becomes a full copy of every file in
+the stage's outputs, and it is charged before any compute starts. On a stage with
+multi-terabyte outputs this can cost far more than the rebuild it was meant to avoid,
+and it duplicates data the links existed to share.
+
+With the default `cache.type=copy` there is no link to break, so `persist` is cheap and
+the above does not apply.
+
+Where the unprotect pass is too expensive, run the workflow directly and register the
+result afterwards:
+
+```bash
+./modules/mkobj/run_mod.sh --notemp     # snakemake decides what to skip
+dvc commit <stage>                      # record the outputs DVC did not produce
+```
+
+This keeps the incremental behaviour at the cost of the stage no longer being
+reproducible purely through `dvc repro` — a deliberate trade, worth a note in the
+dataset repo when you make it.
 
 ## Configuration
 
