@@ -88,6 +88,32 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
         f"{is_doublet.sum()} doublets, "
         f"{is_unassigned.sum()} unassigned)"
     )
+
+    # Relabel onto the project's declared sample_id, and record the gussid.
+    #
+    # The samples sheet is a crosswalk: one row per (capture, obs_label), where
+    # obs_label is the value create_anndata wrote into obs['sample_id'] — the
+    # gussid for a pooled capture (from cell_assignment.tsv) or the capture name
+    # for a non-pooled one (mkobj's fallback). Selection above matched on it.
+    # Here we set obs['gussid'] and overwrite obs['sample_id'] with the declared
+    # name the project uses as its merge key. Cells with no crosswalk match
+    # (doublets, unassigned) keep their sentinel/NA sample_id and get a null
+    # gussid. Guarded: an old-format sheet (sample_id + capture_id only) still
+    # selects, it just does not relabel.
+    xwalk = {"gussid", "declared_sample_id", "donor_id", "tissue_id"}
+    if xwalk.issubset(samples_filter.columns):
+        sub = samples_filter.loc[samples_filter["capture_id"] == capture]
+        by_label = sub.drop_duplicates("sample_id").set_index("sample_id")
+        obs_label = adata.obs["sample_id"].astype(object)
+        adata.obs["gussid"] = obs_label.map(by_label["gussid"]).values
+        adata.obs["donor_id"] = obs_label.map(by_label["donor_id"]).values
+        adata.obs["tissue_id"] = obs_label.map(by_label["tissue_id"]).values
+        declared = obs_label.map(by_label["declared_sample_id"])
+        adata.obs["sample_id"] = declared.where(declared.notna(), obs_label).values
+        logger.info(
+            f"  Relabelled {capture} onto declared sample_id; set obs['gussid']"
+        )
+
     return adata
 
 
