@@ -69,6 +69,28 @@ filter_object <- function(obj, samples_filter) {
             " (kept ", sum(cell_meta$sample_id %in% valid_samples), " cohort singlets, ",
             sum(!is.na(cell_meta$status) & cell_meta$status == "doublet"), " doublets, ",
             sum(is.na(cell_meta$sample_id)), " unassigned)")
+
+    # Relabel onto the project's declared sample_id, and record the gussid.
+    # The samples sheet is a crosswalk: one row per (capture, obs_label), where
+    # obs_label is what create_anndata wrote into sample_id (gussid for a pooled
+    # capture, capture name for a non-pooled one). Selection above matched on it;
+    # here we set `gussid` and overwrite `sample_id` with the declared name.
+    # Cells with no match (doublets, unassigned) keep their sentinel/NA sample_id
+    # and get a null gussid. Guarded so an old-format sheet still selects.
+    xwalk <- c("gussid", "declared_sample_id", "donor_id", "tissue_id")
+    if (all(xwalk %in% colnames(samples_filter))) {
+        by_label <- samples_filter %>%
+            filter(capture_id == capture) %>%
+            distinct(sample_id, .keep_all = TRUE)
+        labels <- as.character(obj$sample_id)
+        m <- match(labels, by_label$sample_id)
+        obj$gussid    <- by_label$gussid[m]
+        obj$donor_id  <- by_label$donor_id[m]
+        obj$tissue_id <- by_label$tissue_id[m]
+        declared <- by_label$declared_sample_id[m]
+        obj$sample_id <- ifelse(is.na(declared), labels, declared)
+        message("  Relabelled ", capture, " onto declared sample_id; set gussid")
+    }
     return(obj)
 }
 
