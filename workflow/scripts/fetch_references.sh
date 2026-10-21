@@ -53,4 +53,21 @@ file=homo_sapiens_core_114_38_stable_id_event.txt.gz
 curl -fsSL -o "$directory/$file" "$ensembl/stable_id_event.txt.gz"
 check "BSD checksum of $file" "$(sum < "$directory/$file")" "22726 16128"
 
+# 4. CELLxGENE's own accepted-gene list (genes_homo_sapiens.csv.gz) — the exact set
+# `cellxgene-schema validate` checks. Copied out of the cxg_schema conda env so it always
+# matches the pinned validator version (no GitHub tag/md5 to guess). Best-effort: if the
+# env/package is unavailable, reconcile_gene_space.py skips the early membership check and
+# validate_cellxgene backstops it, so this does not fail the fetch.
+file=genes_homo_sapiens.csv.gz
+source /g/data/a56/conda/miniconda/etc/profile.d/conda.sh 2>/dev/null || true
+if src=$(conda run -n cxg_schema python -c \
+      "import cellxgene_schema,os;print(os.path.join(os.path.dirname(cellxgene_schema.__file__),'gencode_files','$file'))" \
+      2>/dev/null) && [[ -f "$src" ]]; then
+  cp "$src" "$directory/$file"
+  echo "ok   $file copied from cxg_schema env ($(gzip -dc "$directory/$file" | grep -c '^ENSG') gene ids)"
+else
+  echo "warn $file NOT sourced (cxg_schema env/cellxgene_schema unavailable); the reconcile" \
+       "membership check will be skipped — validate_cellxgene backstops it" >&2
+fi
+
 echo "done: references in $directory"

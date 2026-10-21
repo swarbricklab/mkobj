@@ -180,6 +180,11 @@ params:
 #     stable_id_history:
 #       path: resources/gene_reference/homo_sapiens_core_114_38_stable_id_event.txt.gz
 #       bsd_sum: "22726 16128"
+#     # Optional: CELLxGENE's own accepted-gene list (what `cellxgene-schema validate`
+#     # checks). fetch_references.sh copies it version-matched from the cxg_schema env.
+#     # If absent, the early membership check is skipped and validate_cellxgene backstops.
+#     cellxgene_gene_list:
+#       path: resources/gene_reference/genes_homo_sapiens.csv.gz
 #   min_reciprocal_overlap: 0.5
 #   min_exon_overlap: 0.5
 #   accepted_biotype_changes:        # dataset-specific; {} elsewhere

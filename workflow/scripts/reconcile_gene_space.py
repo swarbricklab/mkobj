@@ -509,6 +509,57 @@ def _apply(adata, crosswalk, logger):
     return adata
 
 
+# ── CELLxGENE acceptance-list membership check (step 6b) ──────────────────────────
+# The target-build GTF is a superset of what CELLxGENE actually accepts: the schema
+# validates `var` ids against CZI's own gene list (genes_homo_sapiens.csv.gz), which
+# `cellxgene-schema validate` loads. CZI publishes that list but no old->new rename
+# table, so the crosswalk above is derived from the GTF + Ensembl history; this step
+# then anchors the RESULT to CZI's list, catching any kept/renamed id CZI excludes at
+# the source instead of at the final validate.
+def _acceptance_ids(path):
+    """Versionless ENSG ids from CELLxGENE's genes_homo_sapiens.csv.gz (first column)."""
+    ids = set()
+    with gzip.open(path, "rt") as handle:
+        for line in handle:
+            token = line.split(",", 1)[0].strip().strip('"')
+            if token.startswith("ENSG"):
+                ids.add(token.split(".")[0])
+    return ids
+
+
+def _enforce_acceptance(crosswalk, path, logger):
+    """Reclassify any kept/renamed gene whose target id is NOT in CELLxGENE's accepted
+    list to 'drop' (it would otherwise fail `cellxgene-schema validate`). Every
+    reclassified id is logged. Reclassification only removes genes, so the var-index
+    uniqueness established above is preserved."""
+    accept = _acceptance_ids(path)
+    if not accept:
+        sys.exit(f"FAIL CELLxGENE gene list parsed 0 ENSG ids: {path}")
+    logger.info(f"CELLxGENE acceptance list: {len(accept):,} gene ids ({path})")
+
+    in_target = (
+        crosswalk["gene_id_target"].astype("string").str.split(".").str[0].isin(accept)
+    )
+    invalid = crosswalk["in_object"].to_numpy() & ~in_target.fillna(False).to_numpy()
+    n = int(invalid.sum())
+    if n:
+        offenders = list(
+            crosswalk.loc[invalid, ["gene_id_source", "gene_id_target", "action"]]
+            .itertuples(index=False, name=None)
+        )
+        logger.warning(
+            f"MEMBERSHIP: {n} kept/renamed gene(s) are NOT in CELLxGENE's accepted list "
+            f"(would fail cellxgene-schema validate) -> reclassifying to DROP. "
+            f"First {min(n, 25)}: {offenders[:25]}"
+        )
+        crosswalk.loc[invalid, "reason"] = "not in CELLxGENE acceptance list"
+        crosswalk.loc[invalid, "action"] = "drop"
+        crosswalk.loc[invalid, "in_object"] = False
+    else:
+        logger.info("MEMBERSHIP: all kept/renamed gene ids are in CELLxGENE's accepted list")
+    return crosswalk
+
+
 def _main():
     import logging
 
@@ -555,6 +606,19 @@ def _main():
         accepted_biotype_changes=accepted,
         checksums=checksums or None,
     )
+
+    # Anchor the crosswalk to CELLxGENE's own accepted-gene list, if provided.
+    gene_list = (
+        (params.get("references", {}) or {}).get("cellxgene_gene_list", {}) or {}
+    ).get("path")
+    if gene_list and Path(gene_list).exists():
+        crosswalk = _enforce_acceptance(crosswalk, gene_list, logger)
+    else:
+        logger.warning(
+            "MEMBERSHIP: no CELLxGENE gene list present "
+            "(reconcile.references.cellxgene_gene_list) -> early membership check SKIPPED; "
+            "validate_cellxgene remains the backstop."
+        )
 
     Path(output_crosswalk).parent.mkdir(parents=True, exist_ok=True)
     crosswalk.to_csv(output_crosswalk, index=False)
