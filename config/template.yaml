@@ -133,6 +133,57 @@ params:
 #     # The literal {subset} is replaced with the subset name, so one config
 #     # can title every object a `subsets:` run produces.
 #     title: "My dataset — {subset}"
+#   feature_reference: "NCBITaxon:9606"
+#
+# schema_version selects the target schema. "7.1.0" (any 7.x) promotes
+# layers['counts'] -> raw.X (X stays normalized), asserts the var index is unique
+# Ensembl IDs, and leaves feature_reference for the portal to derive. Absent or
+# "5.1.0" keeps the stock behaviour. Pair 7.1.0 with the reconcile: block below so
+# the var index carries target-build (e.g. v48) IDs.
+#
+# cellxgene:
+#   schema_version: "7.1.0"
+
+# ── Gene-space reconciliation / gene lift (optional) ───────────────────────────
+# Lifts the object's gene space from its source GENCODE build (the Cell Ranger
+# reference, whose unversioned Ensembl IDs are the var index in count-matrix order)
+# to a target build (e.g. GENCODE v48, the CELLxGENE 7.1.0 gene set). Retired
+# identifiers are renamed to their successor or dropped following the same crosswalk
+# as the brca_major_atlas CELLxGENE curation. Counts are carried unchanged across a
+# rename (two columns are never summed).
+#
+# The block is OPTIONAL: omit it (or set enabled: false) and the DAG is identical to
+# the stock pipeline — no reconcile_gene_space / validate_cellxgene jobs.
+#
+# apply_mode: early (default) lifts merged.h5ad before process_merged_anndata, so
+#   HVG/PCA/clustering run on the final gene set (but dropping genes before
+#   normalization changes per-cell totals — not bit-identical to a normalize-then-drop
+#   object). late lifts processed.h5ad instead, preserving the embedding and only
+#   slicing X / layers['counts'] / varm['PCs'].
+#
+# The three references are fetched download-free on compute; run
+# workflow/scripts/fetch_references.sh on a networked node first. The checksums are
+# re-verified (no network) inside reconcile_gene_space.py.
+#
+# reconcile:
+#   enabled: true
+#   apply_mode: early            # early (default) | late
+#   target_schema_version: "7.1.0"
+#   target_gencode_version: "v48"
+#   references:
+#     source_gtf:
+#       path: resources/gene_reference/gencode.v32.primary_assembly.annotation.gtf.gz
+#       md5: f660ce967d954fe704700ddc81ebf373
+#     target_gtf:
+#       path: resources/gene_reference/gencode.v48.primary_assembly.annotation.gtf.gz
+#       md5: 1b68ecb47fd4cc3946819fec58a59d8f
+#     stable_id_history:
+#       path: resources/gene_reference/homo_sapiens_core_114_38_stable_id_event.txt.gz
+#       bsd_sum: "22726 16128"
+#   min_reciprocal_overlap: 0.5
+#   min_exon_overlap: 0.5
+#   accepted_biotype_changes:        # dataset-specific; {} elsewhere
+#     ENSG00000184258: ENSG00000288642   # CDR1 (v32 protein_coding -> v48 lncRNA)
 
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.

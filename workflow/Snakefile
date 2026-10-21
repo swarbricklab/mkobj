@@ -50,8 +50,10 @@ include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
 include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
+include: "rules/reconcile_gene_space.smk"
 include: "rules/process_merged.smk"
 include: "rules/format_cellxgene.smk"
+include: "rules/validate_cellxgene.smk"
 
 # ── Targets ──────────────────────────────────────────────────────────────────────
 targets = []
@@ -61,10 +63,18 @@ if use_subsets:
         targets.append(out_dir / name / "merged.qs")
         targets.append(out_dir / name / "processed.h5ad")
         targets.append(out_dir / name / "cellxgene.h5ad")
+        if reconcile_enabled():
+            targets.append(out_dir / name / "reconciled.h5ad")
+            targets.append(out_dir / name / "gene_crosswalk.csv")
+            targets.append(out_dir / name / "validation_report.txt")
 else:
     targets.append(out_dir / "merged.qs")
     targets.append(out_dir / "processed.h5ad")
     targets.append(out_dir / "cellxgene.h5ad")
+    if reconcile_enabled():
+        targets.append(out_dir / "reconciled.h5ad")
+        targets.append(out_dir / "gene_crosswalk.csv")
+        targets.append(out_dir / "validation_report.txt")
 
 rule all:
     input:
