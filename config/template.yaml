@@ -44,6 +44,21 @@ params:
   # - "Gene Expression": use gene expression only
   modality: "auto"
 
+  # ── Do-less / output switches ──
+  # Both default to the full pipeline; set both to the lean values to build only
+  # the raw aggregated count object (merged.h5ad) with no Seurat sidecar.
+
+  # Build the Seurat R track (create_seurat_object -> merge_captures -> merged.qs).
+  # Set false to drop that whole track from the DAG (the AnnData track is
+  # unaffected; no AnnData rule depends on merged.qs).
+  make_seurat: true
+
+  # Stop before normalisation: when true, `rule all` builds ONLY the raw,
+  # QC-filtered count object (merged.h5ad) and omits processed.h5ad,
+  # cellxgene.h5ad and any reconcile/validate targets. Leave false for the full
+  # embed + cellxgene schema object.
+  raw_only: false
+
   # Scrublet threshold for predicting standard computational doublets
   scrublet_threshold: 0.2
 
