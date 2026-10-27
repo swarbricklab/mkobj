@@ -257,30 +257,61 @@ if "batch" in merged.obs.columns:
     merged.obs["pool_id"] = merged.obs["batch"].astype(object)
     merged.obs = merged.obs.drop(columns=["batch"])
 
-# ── CLASSIC string encoding for var (and obs) ────────────────────────────────────
-# The per-capture objects carry a 'nullable-string-array' var index/columns
-# (anndata >= 0.10). Older anndata readers silently interpret that as an EMPTY
-# gene axis — the exact bug that dropped all 36601 genes last time. Coerce the
-# index and every string column to a plain numpy object dtype so the write uses
-# the classic 'string-array' encoding every anndata version reads correctly.
-def _to_classic_strings(df):
-    df.index = pd.Index(np.asarray(df.index, dtype=object))
-    for c in df.columns:
-        if pd.api.types.is_string_dtype(df[c]) or df[c].dtype == object:
-            df[c] = np.asarray(df[c].astype(str), dtype=object)
-    return df
-
-merged.var = _to_classic_strings(merged.var)
-merged.obs = _to_classic_strings(merged.obs)
+# ── CLASSIC string encoding for the var/obs index ────────────────────────────────
+# ad.concat produces a pandas StringDtype (nullable) var index, which anndata
+# writes as 'nullable-string-array' — older readers silently interpret that as an
+# EMPTY gene axis (the bug that dropped all 36601 genes last time). Force a plain
+# object-dtype index via DIRECT `.index =` assignment. (Reassigning the whole
+# frame — `merged.var = df` — does NOT work: anndata's DataFrame setter re-infers
+# a pandas StringDtype under pandas >= 2.x string inference, reintroducing the
+# nullable encoding. String columns here are categorical, which every anndata
+# version reads, so only the index needs coercing.)
+merged.var.index = pd.Index(np.asarray(merged.var.index, dtype=object),
+                            name=merged.var.index.name)
+merged.obs.index = pd.Index(np.asarray(merged.obs.index, dtype=object),
+                            name=merged.obs.index.name)
 
 # Save merged object
 logger.info(f"Saving merged object to: {output_file}")
 Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 merged.write_h5ad(output_file)
 
+# Belt-and-suspenders: if any anndata/pandas combination still wrote the index as
+# nullable-string-array (a group with values+mask), rewrite it to the classic
+# string-array dataset encoding in place.
+import h5py
+def _force_classic_index(path, axis):
+    with h5py.File(path, "r+") as hf:
+        node = hf[axis]["_index"]
+        if not isinstance(node, h5py.Group):
+            return  # already classic string-array
+        vals = node["values"][:]
+        del hf[axis]["_index"]
+        ds = hf[axis].create_dataset("_index", data=vals,
+                                     dtype=h5py.string_dtype(encoding="utf-8"))
+        ds.attrs["encoding-type"] = "string-array"
+        ds.attrs["encoding-version"] = "0.2.0"
+        logger.info(f"Rewrote {axis}/_index nullable-string-array -> classic string-array")
+
+for _axis in ("var", "obs"):
+    with h5py.File(output_file, "r") as _hf:
+        if dict(_hf[_axis]["_index"].attrs).get("encoding-type") != "string-array":
+            _rewrite = True
+        else:
+            _rewrite = False
+    if _rewrite:
+        _force_classic_index(output_file, _axis)
+
 # ── Post-write verification: re-read and assert the gene axis survived ───────────
 check = ad.read_h5ad(output_file, backed="r")
-logger.info(f"Re-read check: n_obs={check.n_obs} n_vars={check.n_vars} var0={check.var_names[0]!r}")
+with h5py.File(output_file, "r") as _hf:
+    _var_enc = dict(_hf["var"]["_index"].attrs).get("encoding-type")
+logger.info(f"Re-read check: n_obs={check.n_obs} n_vars={check.n_vars} "
+            f"var0={check.var_names[0]!r} var_index_enc={_var_enc}")
+if expected_n_vars is not None:
+    assert _var_enc == "string-array", (
+        f"var index encoding is {_var_enc}, not classic string-array."
+    )
 if expected_n_vars is not None:
     assert check.n_vars == int(expected_n_vars), (
         f"GENE AXIS LOST: re-read n_vars={check.n_vars}, expected {expected_n_vars}. "
