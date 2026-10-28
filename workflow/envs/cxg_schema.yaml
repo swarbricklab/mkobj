@@ -1,0 +1,14 @@
+name: cxg_schema
+
+# The CELLxGENE schema validator. Kept in its own env because cellxgene-schema
+# pins numpy / anndata versions that conflict with the scanpy env used by every
+# other rule. Used only by rules/validate_cellxgene.smk.
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - cellxgene-schema==7.1.1

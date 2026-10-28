@@ -17,9 +17,12 @@ if use_subsets:
         """
         Normalize, compute HVGs, PCA, UMAP, and Leiden clustering
         on the merged AnnData object for a named subset.
+
+        When the gene-lift stage runs in early mode, this reads the reconciled
+        object instead of the raw merged one (see rules/common.smk).
         """
         input:
-            merged = out_dir / "{subset}/merged.h5ad"
+            merged = process_merged_input
         output:
             processed = out_dir / "{subset}/processed.h5ad"
         log:
@@ -35,9 +38,12 @@ else:
         """
         Normalize, compute HVGs, PCA, UMAP, and Leiden clustering
         on the merged AnnData object.
+
+        When the gene-lift stage runs in early mode, this reads the reconciled
+        object instead of the raw merged one (see rules/common.smk).
         """
         input:
-            merged = out_dir / "merged.h5ad"
+            merged = process_merged_input
         output:
             processed = out_dir / "processed.h5ad"
         log:

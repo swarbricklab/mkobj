@@ -20,7 +20,7 @@ if use_subsets:
         Format the processed AnnData object for CELLxGENE upload.
         """
         input:
-            processed = out_dir / "{subset}/processed.h5ad",
+            processed = format_cellxgene_input,
             metadata = _cellxgene_metadata
         output:
             cellxgene = out_dir / "{subset}/cellxgene.h5ad"
@@ -39,7 +39,7 @@ else:
         Format the processed AnnData object for CELLxGENE upload.
         """
         input:
-            processed = out_dir / "processed.h5ad",
+            processed = format_cellxgene_input,
             metadata = _cellxgene_metadata
         output:
             cellxgene = out_dir / "cellxgene.h5ad"

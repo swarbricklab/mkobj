@@ -44,6 +44,21 @@ params:
   # - "Gene Expression": use gene expression only
   modality: "auto"
 
+  # ── Do-less / output switches ──
+  # Both default to the full pipeline; set both to the lean values to build only
+  # the raw aggregated count object (merged.h5ad) with no Seurat sidecar.
+
+  # Build the Seurat R track (create_seurat_object -> merge_captures -> merged.qs).
+  # Set false to drop that whole track from the DAG (the AnnData track is
+  # unaffected; no AnnData rule depends on merged.qs).
+  make_seurat: true
+
+  # Stop before normalisation: when true, `rule all` builds ONLY the raw,
+  # QC-filtered count object (merged.h5ad) and omits processed.h5ad,
+  # cellxgene.h5ad and any reconcile/validate targets. Leave false for the full
+  # embed + cellxgene schema object.
+  raw_only: false
+
   # Scrublet threshold for predicting standard computational doublets
   scrublet_threshold: 0.2
 
@@ -133,6 +148,62 @@ params:
 #     # The literal {subset} is replaced with the subset name, so one config
 #     # can title every object a `subsets:` run produces.
 #     title: "My dataset — {subset}"
+#   feature_reference: "NCBITaxon:9606"
+#
+# schema_version selects the target schema. "7.1.0" (any 7.x) promotes
+# layers['counts'] -> raw.X (X stays normalized), asserts the var index is unique
+# Ensembl IDs, and leaves feature_reference for the portal to derive. Absent or
+# "5.1.0" keeps the stock behaviour. Pair 7.1.0 with the reconcile: block below so
+# the var index carries target-build (e.g. v48) IDs.
+#
+# cellxgene:
+#   schema_version: "7.1.0"
+
+# ── Gene-space reconciliation / gene lift (optional) ───────────────────────────
+# Lifts the object's gene space from its source GENCODE build (the Cell Ranger
+# reference, whose unversioned Ensembl IDs are the var index in count-matrix order)
+# to a target build (e.g. GENCODE v48, the CELLxGENE 7.1.0 gene set). Retired
+# identifiers are renamed to their successor or dropped following the same crosswalk
+# as the brca_major_atlas CELLxGENE curation. Counts are carried unchanged across a
+# rename (two columns are never summed).
+#
+# The block is OPTIONAL: omit it (or set enabled: false) and the DAG is identical to
+# the stock pipeline — no reconcile_gene_space / validate_cellxgene jobs.
+#
+# apply_mode: early (default) lifts merged.h5ad before process_merged_anndata, so
+#   HVG/PCA/clustering run on the final gene set (but dropping genes before
+#   normalization changes per-cell totals — not bit-identical to a normalize-then-drop
+#   object). late lifts processed.h5ad instead, preserving the embedding and only
+#   slicing X / layers['counts'] / varm['PCs'].
+#
+# The three references are fetched download-free on compute; run
+# workflow/scripts/fetch_references.sh on a networked node first. The checksums are
+# re-verified (no network) inside reconcile_gene_space.py.
+#
+# reconcile:
+#   enabled: true
+#   apply_mode: early            # early (default) | late
+#   target_schema_version: "7.1.0"
+#   target_gencode_version: "v48"
+#   references:
+#     source_gtf:
+#       path: resources/gene_reference/gencode.v32.primary_assembly.annotation.gtf.gz
+#       md5: f660ce967d954fe704700ddc81ebf373
+#     target_gtf:
+#       path: resources/gene_reference/gencode.v48.primary_assembly.annotation.gtf.gz
+#       md5: 1b68ecb47fd4cc3946819fec58a59d8f
+#     stable_id_history:
+#       path: resources/gene_reference/homo_sapiens_core_114_38_stable_id_event.txt.gz
+#       bsd_sum: "22726 16128"
+#     # Optional: CELLxGENE's own accepted-gene list (what `cellxgene-schema validate`
+#     # checks). fetch_references.sh copies it version-matched from the cxg_schema env.
+#     # If absent, the early membership check is skipped and validate_cellxgene backstops.
+#     cellxgene_gene_list:
+#       path: resources/gene_reference/genes_homo_sapiens.csv.gz
+#   min_reciprocal_overlap: 0.5
+#   min_exon_overlap: 0.5
+#   accepted_biotype_changes:        # dataset-specific; {} elsewhere
+#     ENSG00000184258: ENSG00000288642   # CDR1 (v32 protein_coding -> v48 lncRNA)
 
 # ── Subsets (optional) ─────────────────────────────────────────────────────────
 # Define named subsets to produce multiple merged objects in a single run.
@@ -151,3 +222,46 @@ params:
 #     samples: "config/mkobj/samples_cohort_a.csv"
 #   cohort_b:
 #     samples: "config/mkobj/samples_cohort_b.csv"
+
+# ── Keep-list filter (optional) ────────────────────────────────────────────────
+# Turn the merged object into a curated subset (e.g. the analysed+control
+# singlets for a public deposit) declaratively and reproducibly. Three stages
+# (rules/filter_deposit.smk): extract_obs -> resolve_keep (DuckDB) -> subset_deposit.
+#
+# Omit the block (or set enabled: false) and the DAG is identical to the stock
+# pipeline — no extract_obs / resolve_keep / subset_deposit jobs.
+#
+# The keep-list is resolved by LEFT JOINing the object's .obs against a
+# `disposition_table` — a projection of the project samplesheet that maps a key
+# (sample_id / tissue_id) to a disposition value (e.g. usage) — and evaluating a
+# generic SQL `predicate` over (obs columns x the joined value column). The join
+# key is the UNIQUE capture-prefixed cell id (obs_names), never the bare barcode.
+# Unmatched (LEFT-JOIN NULL) cells are dropped and recorded as 'unmatched_usage'.
+#
+# Tracked outputs (document the deposit's inclusion criteria):
+#   <output>                      the filtered deposit object
+#   keep_cells.csv                cell_ids kept
+#   dropped_cells.csv             cell_id + status + value + capture + reason
+#   status_usage_breakdown.csv    status x value x kept counts
+#
+# filter:
+#   enabled: true
+#   input: merged.h5ad                 # object to filter (under outs.results); default merged.h5ad
+#   output: sc_analysed.raw.h5ad       # filtered deposit object name
+#   expected_n_vars: 36601             # assert the gene axis survived the write
+#
+#   disposition_table: "config/mkobj/samples.csv"   # sample_id,tissue_id,usage[,assay,...]
+#   disposition_filter:                # optional row pre-filter (AND of equalities)
+#     assay: chromium
+#   disposition_value_col: usage       # the column joined onto .obs
+#   joins:                             # (obs_col, disposition_col) probed in order (COALESCE)
+#     - [sample_id, sample_id]         #   obs.sample_id -> disposition.sample_id, else
+#     - [sample_id, tissue_id]         #   obs.sample_id -> disposition.tissue_id (fallback)
+#   aliases:                           # applied to the obs join-column value before matching
+#     "4270": "4270-1"
+#     "4286": "4286-2"
+#     "4851": "4851-2"
+#   exclude_capture_regex: "buffy"     # optional; dropped regardless of predicate
+#   exclude_column: capture_id         # obs column the regex tests (default capture_id)
+#   predicate: "status = 'singlet' AND usage IN ('analysed','control')"
+#   # obs_columns: [cell_id, sample_id, tissue_id, status, capture_id, donor_id]  # default: all
