@@ -50,6 +50,7 @@ include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
 include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
+include: "rules/filter_deposit.smk"
 include: "rules/reconcile_gene_space.smk"
 include: "rules/process_merged.smk"
 include: "rules/format_cellxgene.smk"
@@ -83,6 +84,14 @@ def add_targets(prefix):
             targets.append(prefix / "reconciled.h5ad")
             targets.append(prefix / "gene_crosswalk.csv")
             targets.append(prefix / "validation_report.txt")
+    # Config-gated keep-list filter: when a `filter:` block is enabled, also
+    # build the filtered deposit object and its tracked inclusion-criteria
+    # artifacts (keep / dropped / status x value breakdown).
+    if filter_enabled():
+        targets.append(prefix / filter_output_name())
+        targets.append(prefix / "keep_cells.csv")
+        targets.append(prefix / "dropped_cells.csv")
+        targets.append(prefix / "status_usage_breakdown.csv")
 
 if use_subsets:
     for name in subset_names:

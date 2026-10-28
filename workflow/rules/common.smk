@@ -75,3 +75,20 @@ def format_cellxgene_input(wildcards):
     if reconcile_enabled() and reconcile_mode() == "late":
         return _obj_path(wildcards, "reconciled.h5ad")
     return _obj_path(wildcards, "processed.h5ad")
+
+
+# ── Config-gated keep-list filter (filter_deposit stage) ─────────────────────────
+# Absent `filter:` block -> helpers are no-ops and the filter targets/rules drop
+# from the DAG, so a config without it is byte-identical to the stock pipeline.
+
+def filter_cfg():
+    """The optional top-level `filter:` block (empty dict when absent)."""
+    return config.get('filter', {})
+
+def filter_enabled():
+    """True when the keep-list filter is configured and switched on."""
+    return bool(filter_cfg().get('enabled', False))
+
+def filter_output_name():
+    """File name of the filtered deposit object (under the subset/root dir)."""
+    return filter_cfg().get('output', 'filtered.raw.h5ad')

@@ -222,3 +222,46 @@ params:
 #     samples: "config/mkobj/samples_cohort_a.csv"
 #   cohort_b:
 #     samples: "config/mkobj/samples_cohort_b.csv"
+
+# ── Keep-list filter (optional) ────────────────────────────────────────────────
+# Turn the merged object into a curated subset (e.g. the analysed+control
+# singlets for a public deposit) declaratively and reproducibly. Three stages
+# (rules/filter_deposit.smk): extract_obs -> resolve_keep (DuckDB) -> subset_deposit.
+#
+# Omit the block (or set enabled: false) and the DAG is identical to the stock
+# pipeline — no extract_obs / resolve_keep / subset_deposit jobs.
+#
+# The keep-list is resolved by LEFT JOINing the object's .obs against a
+# `disposition_table` — a projection of the project samplesheet that maps a key
+# (sample_id / tissue_id) to a disposition value (e.g. usage) — and evaluating a
+# generic SQL `predicate` over (obs columns x the joined value column). The join
+# key is the UNIQUE capture-prefixed cell id (obs_names), never the bare barcode.
+# Unmatched (LEFT-JOIN NULL) cells are dropped and recorded as 'unmatched_usage'.
+#
+# Tracked outputs (document the deposit's inclusion criteria):
+#   <output>                      the filtered deposit object
+#   keep_cells.csv                cell_ids kept
+#   dropped_cells.csv             cell_id + status + value + capture + reason
+#   status_usage_breakdown.csv    status x value x kept counts
+#
+# filter:
+#   enabled: true
+#   input: merged.h5ad                 # object to filter (under outs.results); default merged.h5ad
+#   output: sc_analysed.raw.h5ad       # filtered deposit object name
+#   expected_n_vars: 36601             # assert the gene axis survived the write
+#
+#   disposition_table: "config/mkobj/samples.csv"   # sample_id,tissue_id,usage[,assay,...]
+#   disposition_filter:                # optional row pre-filter (AND of equalities)
+#     assay: chromium
+#   disposition_value_col: usage       # the column joined onto .obs
+#   joins:                             # (obs_col, disposition_col) probed in order (COALESCE)
+#     - [sample_id, sample_id]         #   obs.sample_id -> disposition.sample_id, else
+#     - [sample_id, tissue_id]         #   obs.sample_id -> disposition.tissue_id (fallback)
+#   aliases:                           # applied to the obs join-column value before matching
+#     "4270": "4270-1"
+#     "4286": "4286-2"
+#     "4851": "4851-2"
+#   exclude_capture_regex: "buffy"     # optional; dropped regardless of predicate
+#   exclude_column: capture_id         # obs column the regex tests (default capture_id)
+#   predicate: "status = 'singlet' AND usage IN ('analysed','control')"
+#   # obs_columns: [cell_id, sample_id, tissue_id, status, capture_id, donor_id]  # default: all
