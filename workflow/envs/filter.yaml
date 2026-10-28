@@ -1,0 +1,20 @@
+name: mkobj_filter
+
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # Reads the raw-deposit merged.h5ad, which ad.concat writes with a
+  # nullable-string obs/var index — only anndata >= 0.11 decodes that reliably,
+  # so pin above the scanpy env's 0.10 floor.
+  - python>=3.10
+  - anndata>=0.11
+  - pandas
+  - numpy
+  - scipy
+  - h5py
+  # Declarative keep-list resolution (LEFT JOIN obs x disposition + predicate).
+  - duckdb>=1.0
+  - pyyaml
