@@ -50,31 +50,54 @@ include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
 include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
+include: "rules/filter_deposit.smk"
 include: "rules/reconcile_gene_space.smk"
 include: "rules/process_merged.smk"
 include: "rules/format_cellxgene.smk"
 include: "rules/validate_cellxgene.smk"
 
 # ── Targets ──────────────────────────────────────────────────────────────────────
+# Two optional, default-preserving switches under config['params']:
+#   make_seurat (default True) — when False, the Seurat R track
+#       (create_seurat_object / merge_captures / merged.qs) drops from the DAG.
+#       merged.qs is only ever a `rule all` target, so removing it removes the
+#       whole track; no AnnData rule depends on it.
+#   raw_only (default False) — when True, `rule all` requests ONLY the raw
+#       QC-filtered count object (merged.h5ad) and omits everything downstream of
+#       normalisation: processed.h5ad, cellxgene.h5ad and the reconcile/validate
+#       targets. merged.h5ad is otherwise pulled in implicitly as an upstream dep,
+#       so it must be named explicitly here when the downstream targets are gone.
+make_seurat = config.get('params', {}).get('make_seurat', True)
+raw_only = config.get('params', {}).get('raw_only', False)
+
 targets = []
+
+def add_targets(prefix):
+    if make_seurat:
+        targets.append(prefix / "merged.qs")
+    if raw_only:
+        targets.append(prefix / "merged.h5ad")
+    else:
+        targets.append(prefix / "processed.h5ad")
+        targets.append(prefix / "cellxgene.h5ad")
+        if reconcile_enabled():
+            targets.append(prefix / "reconciled.h5ad")
+            targets.append(prefix / "gene_crosswalk.csv")
+            targets.append(prefix / "validation_report.txt")
+    # Config-gated keep-list filter: when a `filter:` block is enabled, also
+    # build the filtered deposit object and its tracked inclusion-criteria
+    # artifacts (keep / dropped / status x value breakdown).
+    if filter_enabled():
+        targets.append(prefix / filter_output_name())
+        targets.append(prefix / "keep_cells.csv")
+        targets.append(prefix / "dropped_cells.csv")
+        targets.append(prefix / "status_usage_breakdown.csv")
 
 if use_subsets:
     for name in subset_names:
-        targets.append(out_dir / name / "merged.qs")
-        targets.append(out_dir / name / "processed.h5ad")
-        targets.append(out_dir / name / "cellxgene.h5ad")
-        if reconcile_enabled():
-            targets.append(out_dir / name / "reconciled.h5ad")
-            targets.append(out_dir / name / "gene_crosswalk.csv")
-            targets.append(out_dir / name / "validation_report.txt")
+        add_targets(out_dir / name)
 else:
-    targets.append(out_dir / "merged.qs")
-    targets.append(out_dir / "processed.h5ad")
-    targets.append(out_dir / "cellxgene.h5ad")
-    if reconcile_enabled():
-        targets.append(out_dir / "reconciled.h5ad")
-        targets.append(out_dir / "gene_crosswalk.csv")
-        targets.append(out_dir / "validation_report.txt")
+    add_targets(out_dir)
 
 rule all:
     input:

@@ -46,6 +46,10 @@ max_pct_mt = snakemake.params.get("max_pct_mt", None)
 max_pct_ribo = snakemake.params.get("max_pct_ribo", None)
 filter_doublets = snakemake.params.get("filter_doublets", True)
 min_cells_per_gene = snakemake.params.get("min_cells_per_gene", 3)
+# Optional post-write guard: when set (e.g. the Cell Ranger reference build's
+# 36601), the object is re-read with a standard anndata and the gene axis is
+# asserted — the backstop against the var encoding silently dropping all genes.
+expected_n_vars = snakemake.params.get("expected_n_vars", None)
 
 logger.info(f"Merging {len(h5ad_files)} capture objects...")
 logger.info(f"Output file: {output_file}")
@@ -221,9 +225,103 @@ if min_cells_per_gene is not None:
     n_filtered_genes = merged.var['is_filtered'].sum()
     logger.info(f"Gene QC: flagged {n_filtered_genes}/{merged.n_vars} genes as is_filtered (expressed in < {min_cells_per_gene} cells)")
 
+# ── Provenance join: donor_id + tissue_id from the samples sheet ─────────────────
+# obs['sample_id'] holds the SNP-demux call (or the capture-name fallback). The
+# samples sheet is a clean 1:1 sample_id -> donor_id / tissue_id crosswalk, so
+# join on sample_id. Cells with no sample match (doublets, unassigned, the "NA"
+# sentinel) get "NA" — note every capture here is pooled (multi-donor), so there
+# is no unambiguous capture_id fallback for donor/tissue.
+if samples_filter is not None and {"donor_id", "tissue_id"}.issubset(samples_filter.columns):
+    by_sample = samples_filter.drop_duplicates("sample_id").set_index("sample_id")
+    sid = merged.obs["sample_id"].astype(object)
+    for col in ("donor_id", "tissue_id"):
+        mapped = sid.map(by_sample[col])
+        merged.obs[col] = mapped.where(mapped.notna(), "NA").astype(object).values
+    n_matched = sid.isin(by_sample.index).sum()
+    logger.info(
+        f"Joined donor_id/tissue_id from samples sheet: {n_matched}/{merged.n_obs} "
+        f"cells matched on sample_id"
+    )
+else:
+    logger.info("No donor_id/tissue_id columns in samples sheet — skipping provenance join")
+
+# ── Grouping keys: capture_id + pool_id ──────────────────────────────────────────
+# create_anndata writes obs['capture']; ad.concat adds obs['batch'] from the
+# per-capture file stems, which are identical to 'capture' here. Expose them
+# under the deposit's grouping-key names. (pool_id == capture_id in this dataset:
+# the 10x capture IS the demux pool, there is no coarser pool grouping.)
+if "capture" in merged.obs.columns:
+    merged.obs["capture_id"] = merged.obs["capture"].astype(object)
+    merged.obs = merged.obs.drop(columns=["capture"])
+if "batch" in merged.obs.columns:
+    merged.obs["pool_id"] = merged.obs["batch"].astype(object)
+    merged.obs = merged.obs.drop(columns=["batch"])
+
+# ── CLASSIC string encoding for the var/obs index ────────────────────────────────
+# ad.concat produces a pandas StringDtype (nullable) var index, which anndata
+# writes as 'nullable-string-array' — older readers silently interpret that as an
+# EMPTY gene axis (the bug that dropped all 36601 genes last time). Force a plain
+# object-dtype index via DIRECT `.index =` assignment. (Reassigning the whole
+# frame — `merged.var = df` — does NOT work: anndata's DataFrame setter re-infers
+# a pandas StringDtype under pandas >= 2.x string inference, reintroducing the
+# nullable encoding. String columns here are categorical, which every anndata
+# version reads, so only the index needs coercing.)
+merged.var.index = pd.Index(np.asarray(merged.var.index, dtype=object),
+                            name=merged.var.index.name)
+merged.obs.index = pd.Index(np.asarray(merged.obs.index, dtype=object),
+                            name=merged.obs.index.name)
+
 # Save merged object
 logger.info(f"Saving merged object to: {output_file}")
 Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 merged.write_h5ad(output_file)
+
+# Belt-and-suspenders: if any anndata/pandas combination still wrote the index as
+# nullable-string-array (a group with values+mask), rewrite it to the classic
+# string-array dataset encoding in place.
+import h5py
+def _force_classic_index(path, axis):
+    with h5py.File(path, "r+") as hf:
+        node = hf[axis]["_index"]
+        if not isinstance(node, h5py.Group):
+            return  # already classic string-array
+        vals = node["values"][:]
+        del hf[axis]["_index"]
+        ds = hf[axis].create_dataset("_index", data=vals,
+                                     dtype=h5py.string_dtype(encoding="utf-8"))
+        ds.attrs["encoding-type"] = "string-array"
+        ds.attrs["encoding-version"] = "0.2.0"
+        logger.info(f"Rewrote {axis}/_index nullable-string-array -> classic string-array")
+
+for _axis in ("var", "obs"):
+    with h5py.File(output_file, "r") as _hf:
+        if dict(_hf[_axis]["_index"].attrs).get("encoding-type") != "string-array":
+            _rewrite = True
+        else:
+            _rewrite = False
+    if _rewrite:
+        _force_classic_index(output_file, _axis)
+
+# ── Post-write verification: re-read and assert the gene axis survived ───────────
+check = ad.read_h5ad(output_file, backed="r")
+with h5py.File(output_file, "r") as _hf:
+    _var_enc = dict(_hf["var"]["_index"].attrs).get("encoding-type")
+logger.info(f"Re-read check: n_obs={check.n_obs} n_vars={check.n_vars} "
+            f"var0={check.var_names[0]!r} var_index_enc={_var_enc}")
+if expected_n_vars is not None:
+    assert _var_enc == "string-array", (
+        f"var index encoding is {_var_enc}, not classic string-array."
+    )
+if expected_n_vars is not None:
+    assert check.n_vars == int(expected_n_vars), (
+        f"GENE AXIS LOST: re-read n_vars={check.n_vars}, expected {expected_n_vars}. "
+        f"The var encoding dropped genes — fix before using this object."
+    )
+    v0 = str(check.var_names[0])
+    assert v0.startswith("ENSG"), (
+        f"First var_name {v0!r} is not an Ensembl id — var index encoding is wrong."
+    )
+    logger.info(f"Gene-axis assertion passed: n_vars={check.n_vars}, var0={v0}")
+check.file.close()
 
 logger.info("Done merging captures")
