@@ -36,6 +36,7 @@ sys.excepthook = _excepthook
 h5ad_files = snakemake.input.h5ad_files
 output_file = snakemake.output.merged
 samples_file = snakemake.params.get("samples_file", "")
+captures_file = snakemake.params.get("captures_file", "")
 
 # QC filtering parameters
 min_counts = snakemake.params.get("min_counts", None)
@@ -68,6 +69,12 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
     if samples_filter is None:
         return adata
 
+    # An empty per-capture object (e.g. the buffy genotype-reference captures,
+    # whose cells are all non-cohort so create_anndata keeps 0) has no obs rows to
+    # read a capture name from, and contributes nothing to the merge regardless.
+    if adata.n_obs == 0:
+        return adata
+
     capture = adata.obs['capture'].iloc[0]
     valid_samples = samples_filter.loc[
         samples_filter['capture_id'] == capture, 'sample_id'
@@ -81,7 +88,14 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
 
     is_cohort = adata.obs['sample_id'].isin(valid_samples)
     is_doublet = adata.obs['status'].eq('doublet') & adata.obs['status'].notna()
-    is_unassigned = adata.obs['sample_id'].isna()
+    # create_anndata fills an unassigned cell's sample_id with the literal "NA"
+    # (not an actual null), so isna() alone never catches them and they were
+    # silently dropped here. Treat "NA"/empty as unassigned so they are KEPT in
+    # merged.h5ad (the deposit keep-list drops them later). (jd-garv/#68 #6.)
+    is_unassigned = (
+        adata.obs['sample_id'].isna()
+        | adata.obs['sample_id'].astype(str).isin(['NA', ''])
+    )
 
     keep = is_cohort | is_doublet | is_unassigned
     adata = adata[keep].copy()
@@ -180,50 +194,43 @@ if filter_doublets and 'predicted_doublet' in merged.obs.columns:
     keep &= ~is_doublet
     logger.info(f"  Doublet filter: flagged {n_doublet} cells")
 
-if min_counts is not None and 'nCount_RNA' in merged.obs.columns:
-    fail = merged.obs['nCount_RNA'] < min_counts
+if min_counts is not None and 'total_counts' in merged.obs.columns:
+    fail = merged.obs['total_counts'] < min_counts
     logger.info(f"  min_counts ({min_counts}): flagged {fail.sum()} cells")
     keep &= ~fail
 
-if max_counts is not None and 'nCount_RNA' in merged.obs.columns:
-    fail = merged.obs['nCount_RNA'] > max_counts
+if max_counts is not None and 'total_counts' in merged.obs.columns:
+    fail = merged.obs['total_counts'] > max_counts
     logger.info(f"  max_counts ({max_counts}): flagged {fail.sum()} cells")
     keep &= ~fail
 
-if min_features is not None and 'nFeature_RNA' in merged.obs.columns:
-    fail = merged.obs['nFeature_RNA'] < min_features
+if min_features is not None and 'n_genes_by_counts' in merged.obs.columns:
+    fail = merged.obs['n_genes_by_counts'] < min_features
     logger.info(f"  min_features ({min_features}): flagged {fail.sum()} cells")
     keep &= ~fail
 
-if max_features is not None and 'nFeature_RNA' in merged.obs.columns:
-    fail = merged.obs['nFeature_RNA'] > max_features
+if max_features is not None and 'n_genes_by_counts' in merged.obs.columns:
+    fail = merged.obs['n_genes_by_counts'] > max_features
     logger.info(f"  max_features ({max_features}): flagged {fail.sum()} cells")
     keep &= ~fail
 
-if max_pct_mt is not None and 'percent.mt' in merged.obs.columns:
-    fail = merged.obs['percent.mt'] > max_pct_mt
+if max_pct_mt is not None and 'pct_counts_mt' in merged.obs.columns:
+    fail = merged.obs['pct_counts_mt'] > max_pct_mt
     logger.info(f"  max_pct_mt ({max_pct_mt}): flagged {fail.sum()} cells")
     keep &= ~fail
 
-if max_pct_ribo is not None and 'percent.ribo' in merged.obs.columns:
-    fail = merged.obs['percent.ribo'] > max_pct_ribo
+if max_pct_ribo is not None and 'pct_counts_ribo' in merged.obs.columns:
+    fail = merged.obs['pct_counts_ribo'] > max_pct_ribo
     logger.info(f"  max_pct_ribo ({max_pct_ribo}): flagged {fail.sum()} cells")
     keep &= ~fail
 
 merged = merged[keep].copy()
 logger.info(f"QC cell filtering: {n_before} -> {merged.n_obs} cells (removed {n_before - merged.n_obs})")
 
-# ── Gene QC: flag low-expression genes (do NOT drop) ────────────────────────────
-if min_cells_per_gene is not None:
-    from scipy.sparse import issparse
-    if issparse(merged.X):
-        cells_per_gene = np.asarray((merged.X > 0).sum(axis=0)).flatten()
-    else:
-        cells_per_gene = np.asarray((merged.X > 0).sum(axis=0)).flatten()
-    merged.var['n_cells'] = cells_per_gene
-    merged.var['is_filtered'] = cells_per_gene < min_cells_per_gene
-    n_filtered_genes = merged.var['is_filtered'].sum()
-    logger.info(f"Gene QC: flagged {n_filtered_genes}/{merged.n_vars} genes as is_filtered (expressed in < {min_cells_per_gene} cells)")
+# Gene-level low-expression flagging (var['n_cells'] / var['is_filtered']) was
+# dropped on purpose: whether to filter low-expression genes is a decision for the
+# publication repo, which recomputes it on the curated object. The raw deposit keeps
+# the full Cell Ranger gene axis unannotated. (jd-garv/#68 #9.)
 
 # ── Provenance join: donor_id + tissue_id from the samples sheet ─────────────────
 # obs['sample_id'] holds the SNP-demux call (or the capture-name fallback). The
@@ -246,16 +253,39 @@ else:
     logger.info("No donor_id/tissue_id columns in samples sheet — skipping provenance join")
 
 # ── Grouping keys: capture_id + pool_id ──────────────────────────────────────────
-# create_anndata writes obs['capture']; ad.concat adds obs['batch'] from the
-# per-capture file stems, which are identical to 'capture' here. Expose them
-# under the deposit's grouping-key names. (pool_id == capture_id in this dataset:
-# the 10x capture IS the demux pool, there is no coarser pool grouping.)
+# create_anndata writes obs['capture'] (the 10x capture); ad.concat adds
+# obs['batch'] from the per-capture file stems, identical to 'capture'. capture_id
+# is the capture; pool_id is the authoritative pool from captures_file, which
+# groups split captures (e.g. Atlas_Pool15a/b/b_repeat -> Atlas_Pool15). Captures
+# absent from that map (e.g. buffy genotype references) fall back to capture_id.
 if "capture" in merged.obs.columns:
     merged.obs["capture_id"] = merged.obs["capture"].astype(object)
     merged.obs = merged.obs.drop(columns=["capture"])
 if "batch" in merged.obs.columns:
-    merged.obs["pool_id"] = merged.obs["batch"].astype(object)
     merged.obs = merged.obs.drop(columns=["batch"])
+# captures_file (authoritative capture map) carries capture -> pool_id and
+# capture -> preparation. preparation (none / CD45-depleted / EasySep-annexin /
+# dissociation-*) is the robust key for the CD45-depleted captures: a pool can in
+# principle mix preparations, so substring-matching pool_id is not safe.
+cap_to_pool, cap_to_prep = {}, {}
+if captures_file and Path(captures_file).exists():
+    caps_df = pd.read_csv(captures_file)
+    if {"capture", "pool_id"}.issubset(caps_df.columns):
+        cap_to_pool = dict(zip(caps_df["capture"].astype(str), caps_df["pool_id"].astype(str)))
+    if {"capture", "preparation"}.issubset(caps_df.columns):
+        cap_to_prep = dict(zip(caps_df["capture"].astype(str), caps_df["preparation"].astype(str)))
+if "capture_id" in merged.obs.columns:
+    cid = merged.obs["capture_id"].astype(object)
+    mapped = cid.map(cap_to_pool)
+    merged.obs["pool_id"] = mapped.where(mapped.notna(), cid).astype(object)
+    logger.info(
+        f"pool_id: {cid.nunique()} capture_id -> {merged.obs['pool_id'].nunique()} pool_id "
+        f"({'grouped via ' + captures_file if cap_to_pool else 'no captures map; pool_id==capture_id'})"
+    )
+    if cap_to_prep:
+        prep = cid.map(cap_to_prep)
+        merged.obs["preparation"] = prep.where(prep.notna(), "none").astype(object)
+        logger.info(f"preparation: {merged.obs['preparation'].value_counts().to_dict()}")
 
 # ── CLASSIC string encoding for the var/obs index ────────────────────────────────
 # ad.concat produces a pandas StringDtype (nullable) var index, which anndata

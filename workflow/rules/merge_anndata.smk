@@ -34,6 +34,7 @@ if use_subsets:
             log_dir / "{subset}/merge_anndata.log"
         params:
             samples_file = lambda wc: subset_samples[wc.subset],
+            captures_file = config['deps'].get('captures', ''),
             min_counts = config.get('params', {}).get('min_counts'),
             max_counts = config.get('params', {}).get('max_counts'),
             min_features = config.get('params', {}).get('min_features'),
@@ -61,6 +62,7 @@ else:
             log_dir / "merge_anndata.log"
         params:
             samples_file = config['deps'].get('samples', ''),
+            captures_file = config['deps'].get('captures', ''),
             min_counts = config.get('params', {}).get('min_counts'),
             max_counts = config.get('params', {}).get('max_counts'),
             min_features = config.get('params', {}).get('min_features'),

@@ -85,15 +85,20 @@ logger.info(f"aliases: {aliases}; exclude {exclude_col} =~ {exclude_regex!r}")
 
 con = duckdb.connect()
 
-# Read both tables as all-varchar so types never surprise the join/predicate;
-# empty strings become NULL.
+# Read both tables as all-varchar so types never surprise the join/predicate.
+# Both the empty string AND the literal "NA" become NULL: create_anndata writes an
+# unassigned/passenger cell's sample_id as the string "NA" (R's write.csv also emits
+# "NA" for the passengers whose projects sample_id is blank), and a literal "NA" key
+# would otherwise spuriously join a passenger obs cell to a passenger disposition row.
+# NULL keys never join (map build drops NULLs; the LEFT JOIN on NULL misses), so these
+# rows fall through to the definite-drop path. (jd-garv/#68 #8.)
 con.execute(
     "CREATE TABLE obs AS "
-    "SELECT * FROM read_csv_auto(?, all_varchar=true, nullstr='')", [obs_csv]
+    "SELECT * FROM read_csv_auto(?, all_varchar=true, nullstr=['', 'NA'])", [obs_csv]
 )
 con.execute(
     "CREATE TABLE disp_raw AS "
-    "SELECT * FROM read_csv_auto(?, all_varchar=true, nullstr='')", [disposition_csv]
+    "SELECT * FROM read_csv_auto(?, all_varchar=true, nullstr=['', 'NA'])", [disposition_csv]
 )
 n_obs = con.execute("SELECT count(*) FROM obs").fetchone()[0]
 logger.info(f"Loaded obs rows: {n_obs}")
@@ -126,7 +131,7 @@ for i, dcol in enumerate(disp_cols):
     con.execute(
         f"CREATE TABLE map_{i} AS "
         f"SELECT {q(dcol)} AS k, "
-        f"       any_value({q(value_col)}) AS v, "
+        f"       min({q(value_col)}) AS v, "
         f"       count(DISTINCT {q(value_col)}) AS n_distinct "
         f"FROM disp WHERE {q(dcol)} IS NOT NULL GROUP BY {q(dcol)}"
     )
@@ -194,7 +199,7 @@ for r, c in con.execute(
 
 # ── Emit artifacts ───────────────────────────────────────────────────────────────
 con.execute(
-    f"COPY (SELECT cell_id FROM classified WHERE keep_flag ORDER BY cell_id) "
+    f"COPY (SELECT cell_id, {q(value_col)} FROM classified WHERE keep_flag ORDER BY cell_id) "
     f"TO {lit(keep_out)} (HEADER, DELIMITER ',')"
 )
 con.execute(
