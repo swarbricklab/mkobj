@@ -324,15 +324,10 @@ adata.var['mt'] = adata.var['gene_name'].str.upper().str.startswith("MT-")
 adata.var['ribo'] = adata.var['gene_name'].str.upper().str.startswith(("RPS", "RPL"))
 sc.pp.calculate_qc_metrics(adata, qc_vars=['mt', 'ribo'], percent_top=None, log1p=False, inplace=True)
 
-# Rename to standard Seurat-like conventions for consistency across pipeline
-if 'total_counts' in adata.obs:
-    adata.obs['nCount_RNA'] = adata.obs['total_counts']
-if 'n_genes_by_counts' in adata.obs:
-    adata.obs['nFeature_RNA'] = adata.obs['n_genes_by_counts']
-if 'pct_counts_mt' in adata.obs:
-    adata.obs['percent.mt'] = adata.obs['pct_counts_mt']
-if 'pct_counts_ribo' in adata.obs:
-    adata.obs['percent.ribo'] = adata.obs['pct_counts_ribo']
+# Keep the scanpy QC names only (total_counts / n_genes_by_counts / pct_counts_mt /
+# pct_counts_ribo). The duplicate Seurat-named copies (nCount_RNA / nFeature_RNA /
+# percent.mt / percent.ribo) were dropped -- identical values, and the publication
+# repo recomputes QC anyway (jd-garv/#68 #7). Downstream reads the scanpy names.
 
 # Convert string columns with NA values to proper string type for h5ad compatibility
 # h5py can't handle mixed types or np.nan in string arrays

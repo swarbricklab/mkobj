@@ -28,8 +28,12 @@ keep_csv = snakemake.input.keep
 out_h5ad = snakemake.output.deposit
 expected_n_vars = snakemake.params.get("expected_n_vars")
 
-keep = pd.read_csv(keep_csv)["cell_id"].astype(str).to_numpy()
+keep_df = pd.read_csv(keep_csv, dtype=str)
+keep = keep_df["cell_id"].astype(str).to_numpy()
 keep_set = set(keep)
+# resolve_keep carries the per-cell `usage` disposition (analysed/control) alongside
+# the cell_id so the deposit object can expose it without re-joining (jd-garv/#68 #4).
+usage_by_cell = keep_df.set_index("cell_id")["usage"] if "usage" in keep_df.columns else None
 logger.info(f"Keep-list: {len(keep_set)} unique cell_ids")
 
 logger.info(f"Reading {in_h5ad} (full, in-memory)...")
@@ -48,6 +52,11 @@ if n_match != len(keep_set):
 sub = adata[mask].copy()
 del adata
 logger.info(f"Subset: n_obs={sub.n_obs} n_vars={sub.n_vars}")
+
+# Attach the per-cell usage disposition from the keep-list.
+if usage_by_cell is not None:
+    sub.obs["usage"] = usage_by_cell.reindex(sub.obs_names.astype(str)).astype(str).to_numpy()
+    logger.info(f"usage breakdown: {sub.obs['usage'].value_counts().to_dict()}")
 
 # ── CLASSIC string encoding for the var/obs index (see merge_anndata.py) ─────────
 sub.var.index = pd.Index(np.asarray(sub.var.index, dtype=object), name=sub.var.index.name)
