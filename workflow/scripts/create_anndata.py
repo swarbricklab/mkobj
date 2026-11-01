@@ -98,13 +98,25 @@ def load_assignments(capture: str, barcodes: list, assignment_root: str,
     
     assignment_path = Path(assignment_root) / capture / "cell_assignment.tsv"
     logger.info(f"Looking for assignments at: {assignment_path}")
-    
+
     if not assignment_path.exists():
-        logger.info(f"No sample assignments found. Using {fallback_sample} as sample ID.")
-        return pd.DataFrame({
-            'status': ['singlet'] * len(barcodes),
-            'sample_id': [fallback_sample] * len(barcodes)
-        }, index=barcodes)
+        # demux IS configured but this capture has no assignment file. That is only
+        # legitimate for a declared single-sample capture; otherwise refuse to
+        # silently label every cell a singlet named after the capture — that is how a
+        # failed run with no demux (e.g. Neomet_Pool029a) slipped into the merge as
+        # named singletons. (jd-garv/#68 #11.)
+        if valid_samples is not None and len(valid_samples) == 1:
+            logger.info(f"No demux file; single-sample capture -> using {fallback_sample}.")
+            return pd.DataFrame({
+                'status': ['singlet'] * len(barcodes),
+                'sample_id': [fallback_sample] * len(barcodes)
+            }, index=barcodes)
+        raise FileNotFoundError(
+            f"Capture {capture!r}: demux root is configured but {assignment_path} is "
+            f"missing, and it is not a declared single-sample capture "
+            f"(valid_samples={valid_samples}). Refusing to treat all cells as singlets "
+            f"named after the capture; register its demux output or its single sample."
+        )
     
     assignments = pd.read_csv(assignment_path, sep='\t', dtype={'assignment': str, 'status': str})
     assignments = assignments.rename(columns={'assignment': 'sample_id'})

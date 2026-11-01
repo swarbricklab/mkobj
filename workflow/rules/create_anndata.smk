@@ -12,7 +12,16 @@ rule create_anndata_object:
     Prefixes barcodes with capture ID to ensure uniqueness when merging.
     """
     input:
-        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
+        # Declare the auxiliary dep roots as inputs (not just params) so a change to
+        # any of them triggers a rerun and a missing root is caught at DAG build.
+        # Only those the config actually sets are declared (annotation is dropped for
+        # the raw deposit). The scripts still read the paths from params below; the
+        # inputs exist for Snakemake's change-detection. (jd-garv/#68 #11.)
+        unpack(lambda wc: {
+            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            **{k: config['deps'][k] for k in ("demux", "ambient", "annotation", "samples")
+               if config['deps'].get(k)},
+        })
     output:
         h5ad = temp(out_dir / "per_capture_raw/{capture}.h5ad")
     log:
@@ -24,6 +33,6 @@ rule create_anndata_object:
         samples_file = config['deps'].get('samples', ''),
         modality = config.get('params', {}).get('modality', 'auto')
     conda:
-        "../envs/scanpy.yaml"
+        "../envs/scanpy.linux-64.lock"
     script:
         "../scripts/create_anndata.py"

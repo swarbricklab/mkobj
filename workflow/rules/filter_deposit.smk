@@ -25,7 +25,7 @@ rule extract_obs:
     params:
         obs_columns=filter_cfg().get("obs_columns"),
     conda:
-        "../envs/filter.yaml"
+        "../envs/filter.linux-64.lock"
     script:
         "../scripts/extract_obs.py"
 
@@ -53,7 +53,7 @@ rule resolve_keep:
         exclude_capture_regex=filter_cfg().get("exclude_capture_regex"),
         exclude_column=filter_cfg().get("exclude_column", "capture_id"),
     conda:
-        "../envs/filter.yaml"
+        "../envs/filter.linux-64.lock"
     script:
         "../scripts/resolve_keep.py"
 
@@ -71,6 +71,6 @@ rule subset_deposit:
     params:
         expected_n_vars=filter_cfg().get("expected_n_vars"),
     conda:
-        "../envs/filter.yaml"
+        "../envs/filter.linux-64.lock"
     script:
         "../scripts/subset_deposit.py"
