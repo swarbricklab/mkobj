@@ -137,12 +137,14 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
 
 # ── Load and (optionally) filter objects ─────────────────────────────────────────
 objects = []
+kept_keys = []  # batch keys for the KEPT objects only — must stay aligned with `objects`
 for i, h5ad_file in enumerate(h5ad_files):
     logger.info(f"Loading: {h5ad_file}")
     adata = ad.read_h5ad(h5ad_file)
     adata = filter_adata(adata, samples_filter)
     if adata.n_obs > 0:
         objects.append(adata)
+        kept_keys.append(Path(h5ad_file).stem)
     else:
         logger.info("  Skipping — no cells remaining after filter")
 
@@ -161,7 +163,7 @@ else:
         join='outer',  # Keep all genes from all objects
         merge='same',  # Only merge identical elements
         label='batch',
-        keys=[Path(f).stem for f in h5ad_files],
+        keys=kept_keys,  # kept objects only — a skipped empty capture must not shift labels
         index_unique=None  # Barcodes already prefixed with capture
     )
     

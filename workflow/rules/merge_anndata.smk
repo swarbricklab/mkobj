@@ -45,7 +45,7 @@ if use_subsets:
             min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
         conda:
-            "../envs/scanpy.yaml"
+            "../envs/scanpy.linux-64.lock"
         script:
             "../scripts/merge_anndata.py"
 else:
@@ -73,6 +73,6 @@ else:
             min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
         conda:
-            "../envs/scanpy.yaml"
+            "../envs/scanpy.linux-64.lock"
         script:
             "../scripts/merge_anndata.py"
