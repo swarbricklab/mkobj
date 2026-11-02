@@ -16,7 +16,9 @@ rule detect_doublets:
         lineage_markers = config['deps'].get('lineage_markers', ''),
         scrublet_threshold = config.get('params', {}).get('scrublet_threshold', 0.2),
         cross_lineage_threshold = config.get('params', {}).get('cross_lineage_threshold', 0.7)
-    conda:
-        "../envs/scanpy.yaml"
+    # conda:
+        # "../envs/scanpy.yaml"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:
         "../scripts/detect_doublets.py"

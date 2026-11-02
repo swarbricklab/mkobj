@@ -24,8 +24,10 @@ rule extract_obs:
         log_dir / ("{subset}/extract_obs.log" if use_subsets else "extract_obs.log"),
     params:
         obs_columns=filter_cfg().get("obs_columns"),
-    conda:
-        "../envs/filter.linux-64.lock"
+    # conda:
+        # "../envs/filter.yaml"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-filter@sha256:faaceb40950d0fe4877fce8e69067d53aacf8fbafc6909fcefb7430bc7675cb9"
     script:
         "../scripts/extract_obs.py"
 
@@ -52,8 +54,10 @@ rule resolve_keep:
         predicate=filter_cfg().get("predicate"),
         exclude_capture_regex=filter_cfg().get("exclude_capture_regex"),
         exclude_column=filter_cfg().get("exclude_column", "capture_id"),
-    conda:
-        "../envs/filter.linux-64.lock"
+    # conda:
+        # "../envs/filter.yaml"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-filter@sha256:faaceb40950d0fe4877fce8e69067d53aacf8fbafc6909fcefb7430bc7675cb9"
     script:
         "../scripts/resolve_keep.py"
 
@@ -70,7 +74,9 @@ rule subset_deposit:
         log_dir / ("{subset}/subset_deposit.log" if use_subsets else "subset_deposit.log"),
     params:
         expected_n_vars=filter_cfg().get("expected_n_vars"),
-    conda:
-        "../envs/filter.linux-64.lock"
+    # conda:
+        # "../envs/filter.yaml"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-filter@sha256:faaceb40950d0fe4877fce8e69067d53aacf8fbafc6909fcefb7430bc7675cb9"
     script:
         "../scripts/subset_deposit.py"

@@ -44,8 +44,10 @@ if use_subsets:
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
             min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
-        conda:
-            "../envs/scanpy.linux-64.lock"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/merge_anndata.py"
 else:
@@ -72,7 +74,9 @@ else:
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
             min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
-        conda:
-            "../envs/scanpy.linux-64.lock"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/merge_anndata.py"

@@ -35,8 +35,10 @@ if reconcile_enabled():
                 log_dir / "{subset}/reconcile_gene_space.log"
             params:
                 reconcile = _reconcile_params
-            conda:
-                "../envs/scanpy.yaml"
+            # conda:
+                # "../envs/scanpy.yaml"
+            container:
+                "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
             script:
                 "../scripts/reconcile_gene_space.py"
     else:
@@ -54,7 +56,9 @@ if reconcile_enabled():
                 log_dir / "reconcile_gene_space.log"
             params:
                 reconcile = _reconcile_params
-            conda:
-                "../envs/scanpy.yaml"
+            # conda:
+                # "../envs/scanpy.yaml"
+            container:
+                "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
             script:
                 "../scripts/reconcile_gene_space.py"
