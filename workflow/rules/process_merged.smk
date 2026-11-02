@@ -29,8 +29,10 @@ if use_subsets:
             log_dir / "{subset}/process_merged.log"
         params:
             **_process_params
-        conda:
-            "../envs/scanpy.yaml"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/process_merged_data.py"
 else:
@@ -50,7 +52,9 @@ else:
             log_dir / "process_merged.log"
         params:
             **_process_params
-        conda:
-            "../envs/scanpy.yaml"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/process_merged_data.py"

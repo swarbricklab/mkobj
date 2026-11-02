@@ -29,8 +29,10 @@ if use_subsets:
         params:
             cellxgene = _cellxgene_params,
             subset = lambda wildcards: wildcards.subset
-        conda:
-            "../envs/scanpy.yaml"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/format_cellxgene.py"
 else:
@@ -47,7 +49,9 @@ else:
             log_dir / "format_cellxgene.log"
         params:
             cellxgene = _cellxgene_params
-        conda:
-            "../envs/scanpy.yaml"
+        # conda:
+            # "../envs/scanpy.yaml"
+        container:
+            "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
         script:
             "../scripts/format_cellxgene.py"
