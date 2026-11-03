@@ -47,7 +47,6 @@ max_features = snakemake.params.get("max_features", None)
 max_pct_mt = snakemake.params.get("max_pct_mt", None)
 max_pct_ribo = snakemake.params.get("max_pct_ribo", None)
 filter_doublets = snakemake.params.get("filter_doublets", True)
-min_cells_per_gene = snakemake.params.get("min_cells_per_gene", 3)
 # Optional post-write guard: when set (e.g. the Cell Ranger reference build's
 # 36601), the object is re-read with a standard anndata and the gene axis is
 # asserted — the backstop against the var encoding silently dropping all genes.
@@ -92,7 +91,7 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
     # create_anndata fills an unassigned cell's sample_id with the literal "NA"
     # (not an actual null), so isna() alone never catches them and they were
     # silently dropped here. Treat "NA"/empty as unassigned so they are KEPT in
-    # merged.h5ad (the deposit keep-list drops them later). (jd-garv/#68 #6.)
+    # merged.h5ad (the deposit keep-list drops them later).
     is_unassigned = (
         adata.obs['sample_id'].isna()
         | adata.obs['sample_id'].astype(str).isin(['NA', ''])
@@ -212,10 +211,11 @@ if max_pct_ribo is not None and 'pct_counts_ribo' in merged.obs.columns:
 merged = merged[keep].copy()
 logger.info(f"QC cell filtering: {n_before} -> {merged.n_obs} cells (removed {n_before - merged.n_obs})")
 
-# Gene-level low-expression flagging (var['n_cells'] / var['is_filtered']) was
-# dropped on purpose: whether to filter low-expression genes is a decision for the
-# publication repo, which recomputes it on the curated object. The raw deposit keeps
-# the full Cell Ranger gene axis unannotated. (jd-garv/#68 #9.)
+# Gene-level low-expression flagging (var['n_cells'] / var['is_filtered']) is not
+# done here. It is an optional, config-gated step (flag_low_expression_genes,
+# default off) applied on the final deposited subset in subset_deposit.py, so the
+# counts reflect the curated object rather than this pre-filter merge. This stage
+# keeps the full Cell Ranger gene axis unannotated.
 
 # ── Provenance join: donor_id + tissue_id from the samples sheet ─────────────────
 # obs['sample_id'] holds the SNP-demux call (or the capture-name fallback). The

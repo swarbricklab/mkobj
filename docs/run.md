@@ -54,6 +54,20 @@ Both files contain the same cells and metadata in their respective formats.
 Per-capture intermediate files (`per_capture/{capture}.rds`, `per_capture/{capture}.h5ad`)
 are marked as `temp()` and automatically removed after merging.
 
+### Cell status (demultiplexing)
+
+`obs['status']` carries the SNP-demultiplexing call per cell, derived from the
+demuxafy AtLeastHalfSinglet consensus:
+
+- `singlet` — confidently assigned to one donor (`sample_id` set).
+- `doublet` — the consensus calls the droplet a multiplet.
+- `unassigned` — a singlet droplet the consensus could not tie to a donor.
+
+Caveat: a **same-donor doublet** (two cells of the *same* donor in one droplet) is
+genotypically indistinguishable from a true singlet, so `status == 'singlet'` does
+**not** rule a doublet out. Expression-based doublet detection (e.g. Scrublet) is
+needed to catch these.
+
 ## Cluster Execution
 
 In module mode, `run_mod.sh` uses the cluster profile at `profiles/cluster/config.yaml`,

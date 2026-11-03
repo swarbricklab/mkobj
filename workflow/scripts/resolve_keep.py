@@ -91,7 +91,7 @@ con = duckdb.connect()
 # "NA" for the passengers whose projects sample_id is blank), and a literal "NA" key
 # would otherwise spuriously join a passenger obs cell to a passenger disposition row.
 # NULL keys never join (map build drops NULLs; the LEFT JOIN on NULL misses), so these
-# rows fall through to the definite-drop path. (jd-garv/#68 #8.)
+# rows fall through to the definite-drop path.
 con.execute(
     "CREATE TABLE obs AS "
     "SELECT * FROM read_csv_auto(?, all_varchar=true, nullstr=['', 'NA'])", [obs_csv]

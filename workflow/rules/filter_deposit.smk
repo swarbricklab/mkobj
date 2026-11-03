@@ -74,6 +74,8 @@ rule subset_deposit:
         log_dir / ("{subset}/subset_deposit.log" if use_subsets else "subset_deposit.log"),
     params:
         expected_n_vars=filter_cfg().get("expected_n_vars"),
+        flag_low_expression_genes=filter_cfg().get("flag_low_expression_genes", False),
+        min_cells_per_gene=filter_cfg().get("min_cells_per_gene", 3),
     # conda:
         # "../envs/filter.yaml"
     container:

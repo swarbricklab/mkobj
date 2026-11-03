@@ -27,7 +27,10 @@ if use_subsets:
             h5ad_files = lambda wc: expand(
                 out_dir / (_per_capture_dir + "/{capture}.h5ad"),
                 capture=subset_captures[wc.subset]
-            )
+            ),
+            # captures_file is also declared as an input so an edit to pool_id /
+            # preparation re-triggers the merge; the script reads it from params.
+            captures_file = config['deps'].get('captures', [])
         output:
             merged = out_dir / "{subset}/merged.h5ad"
         log:
@@ -42,7 +45,6 @@ if use_subsets:
             max_pct_mt = config.get('params', {}).get('max_pct_mt'),
             max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
-            min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
         # conda:
             # "../envs/scanpy.yaml"
@@ -57,7 +59,10 @@ else:
         Uses anndata.concat for proper concatenation.
         """
         input:
-            h5ad_files = expand(out_dir / (_per_capture_dir + "/{capture}.h5ad"), capture=captures)
+            h5ad_files = expand(out_dir / (_per_capture_dir + "/{capture}.h5ad"), capture=captures),
+            # captures_file is also declared as an input so an edit to pool_id /
+            # preparation re-triggers the merge; the script reads it from params.
+            captures_file = config['deps'].get('captures', [])
         output:
             merged = out_dir / "merged.h5ad"
         log:
@@ -72,7 +77,6 @@ else:
             max_pct_mt = config.get('params', {}).get('max_pct_mt'),
             max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
-            min_cells_per_gene = config.get('params', {}).get('min_cells_per_gene', 3),
             expected_n_vars = config.get('params', {}).get('expected_n_vars')
         # conda:
             # "../envs/scanpy.yaml"
