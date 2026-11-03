@@ -16,7 +16,7 @@ rule create_anndata_object:
         # any of them triggers a rerun and a missing root is caught at DAG build.
         # Only those the config actually sets are declared (annotation is dropped for
         # the raw deposit). The scripts still read the paths from params below; the
-        # inputs exist for Snakemake's change-detection. (jd-garv/#68 #11.)
+        # inputs exist for Snakemake's change-detection.
         unpack(lambda wc: {
             "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
             **{k: config['deps'][k] for k in ("demux", "ambient", "annotation", "samples")

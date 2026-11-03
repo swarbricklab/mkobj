@@ -27,12 +27,14 @@ in_h5ad = snakemake.input.h5ad
 keep_csv = snakemake.input.keep
 out_h5ad = snakemake.output.deposit
 expected_n_vars = snakemake.params.get("expected_n_vars")
+flag_low_expression_genes = bool(snakemake.params.get("flag_low_expression_genes", False))
+min_cells_per_gene = snakemake.params.get("min_cells_per_gene", 3)
 
 keep_df = pd.read_csv(keep_csv, dtype=str)
 keep = keep_df["cell_id"].astype(str).to_numpy()
 keep_set = set(keep)
 # resolve_keep carries the per-cell `usage` disposition (analysed/control) alongside
-# the cell_id so the deposit object can expose it without re-joining (jd-garv/#68 #4).
+# the cell_id so the deposit object can expose it without re-joining.
 usage_by_cell = keep_df.set_index("cell_id")["usage"] if "usage" in keep_df.columns else None
 logger.info(f"Keep-list: {len(keep_set)} unique cell_ids")
 
@@ -57,6 +59,19 @@ logger.info(f"Subset: n_obs={sub.n_obs} n_vars={sub.n_vars}")
 if usage_by_cell is not None:
     sub.obs["usage"] = usage_by_cell.reindex(sub.obs_names.astype(str)).astype(str).to_numpy()
     logger.info(f"usage breakdown: {sub.obs['usage'].value_counts().to_dict()}")
+
+# Optional, config-gated gene-level low-expression flagging. Computed HERE, on the
+# deposited subset, so var['n_cells'] counts only the cells actually in the deposit
+# (not the pre-filter merge). Off by default: the raw deposit keeps the full,
+# unannotated Cell Ranger gene axis and leaves the filter decision to consumers.
+if flag_low_expression_genes:
+    n_cells = np.asarray((sub.X > 0).sum(axis=0)).ravel()
+    sub.var["n_cells"] = n_cells
+    sub.var["is_filtered"] = n_cells < int(min_cells_per_gene)
+    logger.info(
+        f"Gene flagging: {int(sub.var['is_filtered'].sum())}/{sub.n_vars} genes "
+        f"below min_cells_per_gene={min_cells_per_gene}"
+    )
 
 # ── CLASSIC string encoding for the var/obs index (see merge_anndata.py) ─────────
 sub.var.index = pd.Index(np.asarray(sub.var.index, dtype=object), name=sub.var.index.name)

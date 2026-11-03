@@ -104,7 +104,7 @@ def load_assignments(capture: str, barcodes: list, assignment_root: str,
         # legitimate for a declared single-sample capture; otherwise refuse to
         # silently label every cell a singlet named after the capture — that is how a
         # failed run with no demux (e.g. Neomet_Pool029a) slipped into the merge as
-        # named singletons. (jd-garv/#68 #11.)
+        # named singletons.
         if valid_samples is not None and len(valid_samples) == 1:
             logger.info(f"No demux file; single-sample capture -> using {fallback_sample}.")
             return pd.DataFrame({
@@ -121,7 +121,28 @@ def load_assignments(capture: str, barcodes: list, assignment_root: str,
     assignments = pd.read_csv(assignment_path, sep='\t', dtype={'assignment': str, 'status': str})
     assignments = assignments.rename(columns={'assignment': 'sample_id'})
     assignments = assignments.set_index('barcode')
-    logger.info(f"Loaded assignments for {len(assignments)} cells")
+
+    # Resolve the non-singlet status into 'doublet' vs 'unassigned'. cell_assignment.tsv
+    # records only 'singlet' or 'NA', and its singlet call is the demuxafy
+    # AtLeastHalfSinglet consensus -- so the same consensus resolves the rest: a
+    # non-singlet the consensus calls a doublet is a 'doublet'; otherwise it is a
+    # singlet droplet with no confident donor -> 'unassigned'. (Note a SAME-DONOR
+    # doublet is indistinguishable from a singlet to SNP demux, so 'singlet' never
+    # fully excludes a doublet -- see docs/run.md.)
+    non_singlet = assignments['status'] != 'singlet'
+    sb_path = Path(assignment_root) / capture / "sample_barcode_assignments.tsv"
+    if sb_path.exists() and non_singlet.any():
+        consensus = pd.read_csv(
+            sb_path, sep='\t',
+            usecols=['Barcode', 'AtLeastHalfSinglet_DropletType'], dtype=str
+        ).set_index('Barcode')['AtLeastHalfSinglet_DropletType'].reindex(assignments.index)
+        assignments.loc[non_singlet, 'status'] = 'unassigned'
+        assignments.loc[non_singlet & consensus.eq('doublet'), 'status'] = 'doublet'
+    else:
+        assignments.loc[non_singlet, 'status'] = 'unassigned'
+
+    logger.info(f"Loaded assignments for {len(assignments)} cells "
+                f"(status: {assignments['status'].value_counts().to_dict()})")
     return assignments
 
 
@@ -410,7 +431,7 @@ sc.pp.calculate_qc_metrics(adata, qc_vars=['mt', 'ribo'], percent_top=None, log1
 # Keep the scanpy QC names only (total_counts / n_genes_by_counts / pct_counts_mt /
 # pct_counts_ribo). The duplicate Seurat-named copies (nCount_RNA / nFeature_RNA /
 # percent.mt / percent.ribo) were dropped -- identical values, and the publication
-# repo recomputes QC anyway (jd-garv/#68 #7). Downstream reads the scanpy names.
+# repo recomputes QC anyway. Downstream reads the scanpy names.
 
 # Convert string columns with NA values to proper string type for h5ad compatibility
 # h5py can't handle mixed types or np.nan in string arrays
