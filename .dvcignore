@@ -1,3 +1,9 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Python bytecode caches, so transient __pycache__/*.pyc never pollute the md5 of
+# a directory DVC hashes -- including workflow/ when a downstream repo tracks it as
+# a stage dependency, and the test/data fixtures. They are never part of the logic.
+__pycache__/
+*.pyc
