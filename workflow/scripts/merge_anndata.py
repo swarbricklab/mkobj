@@ -8,6 +8,7 @@ Parallels the logic in merge_captures.R.
 """
 
 import sys
+import gc
 import logging
 import pandas as pd
 import numpy as np
@@ -185,6 +186,13 @@ else:
             merged.uns['AB_features'] = list(dict.fromkeys(all_ab_features))
 
 logger.info(f"Merged object has {merged.n_obs} cells total")
+
+# Free the per-capture inputs now that `merged` holds the concatenated data. They
+# are not referenced again, and keeping them alive through the QC subset below means
+# the originals, `merged`, and `merged[keep].copy()` all coexist (~3x the data) at
+# peak. Dropping them here keeps peak to ~2x so the merge fits a normal-queue node.
+del objects
+gc.collect()
 
 # ── QC cell filtering ────────────────────────────────────────────────────────────
 n_before = merged.n_obs
