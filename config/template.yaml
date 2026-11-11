@@ -249,6 +249,13 @@ params:
 #   input: merged.h5ad                 # object to filter (under outs.results); default merged.h5ad
 #   output: sc_analysed.raw.h5ad       # filtered deposit object name
 #   expected_n_vars: 36601             # assert the gene axis survived the write
+#   # Deposit size reduction (both optional; omit for a plain anndata write):
+#   x_dtype: uint32                    # cast X/data (raw counts arrive as float32); every
+#                                      #   value must round-trip exactly or the job fails.
+#                                      #   X/indices is also written int32 (anndata would
+#                                      #   keep int64 once nnz > 2**31).
+#   compression_level: 9               # gzip level 0-9 + HDF5 shuffle on every dataset.
+#                                      #   Standard filters only: no reader plugins needed.
 #
 #   disposition_table: "config/mkobj/samples.csv"   # sample_id,tissue_id,usage[,assay,...]
 #   disposition_filter:                # optional row pre-filter (AND of equalities)

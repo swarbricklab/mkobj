@@ -64,7 +64,9 @@ rule resolve_keep:
 
 rule subset_deposit:
     """Subset the merged object to the keep-list; write the deposit object with
-    classic var/obs index encoding + a gene-axis assertion."""
+    classic var/obs index encoding + a gene-axis assertion. Optionally casts X
+    to a compact integer dtype and gzip+shuffle-compresses it (x_dtype /
+    compression_level)."""
     input:
         h5ad=lambda wc: _obj_path(wc, filter_cfg().get("input", "merged.h5ad")),
         keep=out_dir / ("{subset}/keep_cells.csv" if use_subsets else "keep_cells.csv"),
@@ -76,6 +78,8 @@ rule subset_deposit:
         expected_n_vars=filter_cfg().get("expected_n_vars"),
         flag_low_expression_genes=filter_cfg().get("flag_low_expression_genes", False),
         min_cells_per_gene=filter_cfg().get("min_cells_per_gene", 3),
+        x_dtype=filter_cfg().get("x_dtype"),
+        compression_level=filter_cfg().get("compression_level"),
     # conda:
         # "../envs/filter.yaml"
     container:
