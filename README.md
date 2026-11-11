@@ -49,6 +49,47 @@ cp modules/mkobj/config/template.yaml config/mkobj/config.yaml
 ./modules/mkobj/run_mod.sh
 ```
 
+### Cluster profiles
+
+mkobj has two NCI cluster profiles:
+
+| Profile | Snakemake | Submission / status check | Used by |
+|---|---|---|---|
+| `profiles/global/nci` (recommended) | 7.32.4 | `pbs_submit.py` / `pbs_status.sh` (`qstat -x`) | dataset wrappers, e.g. the brca_mega_atlas raw deposit |
+| `profiles/cluster` | >= 8.0 | `qxub exec` / `qxtat check` | `run_mod.sh` |
+
+`profiles/global` is the lab-wide [snakemake_config](https://github.com/swarbricklab/snakemake_config)
+profile. It's pinned here as a nested submodule, as in the other workflow modules, and is
+populated by `git submodule update --init --recursive`. Its status check asks PBS directly,
+so it doesn't depend on the shared qxub sqlite database. That database has repeatedly
+corrupted on gdata, and when it does, `profiles/cluster` runs abort with
+`Failed to obtain job status`.
+
+To use the global profile, layer a workflow profile with the per-rule resources on top of it:
+
+```bash
+# From the dataset root
+conda activate snakemake_7.32.4
+module load singularity
+snakemake \
+    --profile modules/mkobj/profiles/global/nci \
+    --workflow-profile config/mkobj/profiles/<name> \
+    --snakefile modules/mkobj/workflow/Snakefile \
+    --configfile config/mkobj/config.yaml
+```
+
+The workflow profile needs the following:
+
+- **`threads` under `set-resources`** for every rule, not just under `set-threads`.
+  `pbs_submit.py` takes `-l ncpus` from `resources.threads`, which defaults to 1.
+- **`use-conda: True`.** Snakemake 7 rejects the global profile's `conda-prefix` without it.
+- **Optionally, `singularity-prefix: /g/data/a56/conda/snakecache/apptainer`**, to reuse the
+  container images that `profiles/cluster` already pulled. Snakemake 7 and 8 use the same
+  `md5(url).simg` names, so nothing is pulled again.
+
+The global profile picks the queue from `mem_mb` (`normal` below about 192 GB, otherwise
+`hugemem`) and writes PBS job logs to `logs/joblogs/<rule>/`.
+
 ## Workflow Structure
 
 The workflow is organized into parallel Seurat and AnnData pipelines that run concurrently:
@@ -203,11 +244,12 @@ Both outputs contain identical data — the same cells, metadata, and (where app
 
 ## Requirements
 
-- [Snakemake](https://snakemake.readthedocs.io/) >= 8.0
-- [snakemake-executor-plugin-cluster-generic](https://github.com/snakemake/snakemake-executor-plugin-cluster-generic)
-- [qxub](https://github.com/swarbricklab/qxub) (for PBS cluster submission)
+- [Snakemake](https://snakemake.readthedocs.io/): 7.32.4 with `profiles/global`, or >= 8.0 with `profiles/cluster`
+- For `profiles/cluster` only:
+  - [snakemake-executor-plugin-cluster-generic](https://github.com/snakemake/snakemake-executor-plugin-cluster-generic)
+  - [qxub](https://github.com/swarbricklab/qxub) (PBS submission)
 - Conda
-- Apptainer (for containerized environments)
+- Apptainer/Singularity (for containerized environments)
 
 Rule-level conda environments are defined in `workflow/envs/` and installed automatically:
 
