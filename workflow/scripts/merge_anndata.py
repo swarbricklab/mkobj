@@ -65,13 +65,17 @@ if samples_file and Path(samples_file).exists():
 
 
 def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.AnnData:
-    """Filter an AnnData object to cells belonging to the subset."""
+    """Filter an AnnData object to cells belonging to the subset.
+
+    This is the only cohort subsetting step on the AnnData track: per-capture
+    objects carry every called cell so doublet detection sees the whole capture
+    (#39). Keeps cohort singlets, demux doublets and unassigned cells.
+    """
     if samples_filter is None:
         return adata
 
-    # An empty per-capture object (e.g. the buffy genotype-reference captures,
-    # whose cells are all non-cohort so create_anndata keeps 0) has no obs rows to
-    # read a capture name from, and contributes nothing to the merge regardless.
+    # An empty per-capture object has no obs rows to read a capture name from,
+    # and contributes nothing to the merge regardless.
     if adata.n_obs == 0:
         return adata
 

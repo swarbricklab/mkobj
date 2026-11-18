@@ -32,3 +32,7 @@ Thumbs.db
 
 # VS Code
 mkobj.code-workspace
+# Synthetic fixture (regenerate with test/synthetic/make_fixture.py)
+/test/synthetic/data/
+/test/synthetic/results/
+/test/synthetic/logs/

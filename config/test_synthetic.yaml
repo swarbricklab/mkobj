@@ -1,0 +1,25 @@
+# Synthetic test configuration — runs locally, no cluster data needed.
+#
+#   python test/synthetic/make_fixture.py
+#   snakemake --snakefile workflow/Snakefile --configfile config/test_synthetic.yaml \
+#       --cores 2 test/synthetic/results/merged.h5ad
+#
+# See test/synthetic/README.md. Ground truth for every barcode is in
+# test/synthetic/data/truth/<capture>.csv.
+
+deps:
+  cellranger: "test/synthetic/data/cellranger"
+  captures: "test/synthetic/data/captures.csv"
+  samples: "test/synthetic/data/samples.csv"
+  demux: "test/synthetic/data/demux"
+  annotation: "test/synthetic/data/annotation"
+
+outs:
+  results: "test/synthetic/results"
+  logs: "test/synthetic/logs"
+
+params:
+  modality: "auto"
+  make_seurat: false
+  # Scrublet's automatic threshold is unstable on ~750 cells; pin it.
+  scrublet_threshold: 0.25

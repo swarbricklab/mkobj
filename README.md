@@ -120,11 +120,14 @@ Cell Ranger matrices
    - Reads Cell Ranger filtered matrices (`barcodes.tsv.gz`, `features.tsv.gz`, `matrix.mtx.gz`)
    - Handles multimodal data — gene expression in `X`, antibody capture in `obsm['AB']` with feature names in `uns['AB_features']`
    - Attaches sample assignments, annotations, and ambient profiles to `obs`
-   - Optionally subsets cells to a specified cohort via `samples.csv` (keeps cohort singlets, doublets, and unassigned cells)
+   - Keeps **every** called cell in the capture (no cohort subsetting), so doublet detection sees passenger cells too
    - Prefixes barcodes with capture ID for uniqueness across captures
    - Converts string columns with NA values to proper string type for h5ad compatibility
 
-2. **merge_anndata_captures**: Merge all per-capture objects into one
+2. **detect_doublets**: Scrublet (+ optional cross-lineage markers) per capture, on all called cells
+
+3. **merge_anndata_captures**: Merge all per-capture objects into one
+   - Subsets each capture to the cohort via `samples.csv` (keeps cohort singlets, demux doublets, and unassigned cells) — after doublet detection
    - Combines all captures using `anndata.concat()` with `join='outer'`
    - Preserves multimodal data in `obsm` across captures
    - Output: `merged.h5ad`
