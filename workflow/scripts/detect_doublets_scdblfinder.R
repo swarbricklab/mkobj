@@ -21,6 +21,7 @@ matrix_dir <- snakemake@input[["matrix_dir"]]
 out_csv    <- snakemake@output[["calls"]]
 seed       <- as.integer(snakemake@params[["seed"]])
 known_csv  <- snakemake@input[["known"]]           # NULL when demux is not configured
+rate       <- read.csv(snakemake@input[["params_csv"]], stringsAsFactors = FALSE)  # #43
 known_use  <- snakemake@params[["known_use"]]
 exclude_genes    <- unlist(snakemake@params[["exclude_genes"]])
 exclude_patterns <- unlist(snakemake@params[["exclude_patterns"]])
@@ -74,6 +75,16 @@ if (!is.null(known)) {
     args$knownDoublets <- known
     args$knownUse <- known_use
 }
+# Expected doublet rate (#43): see doublet_rate.py / scdblfinder_params.py.
+args$dbr.per1k <- rate$dbr_per1k
+if (isTRUE(as.logical(rate$pass_dbr)))    args$dbr    <- rate$dbr_used
+if (isTRUE(as.logical(rate$pass_dbr_sd))) args$dbr.sd <- rate$dbr_sd_used
+fallback <- as.character(rate$fallback_reason)
+message("dbr_source=", rate$dbr_source, " -> ", rate$dbr_source_used,
+        if (!is.na(fallback) && nzchar(fallback)) paste0(" (", fallback, ")") else "",
+        "; dbr.per1k=", rate$dbr_per1k,
+        if (!is.null(args[["dbr"]])) paste0(", dbr=", signif(args[["dbr"]], 3)) else "",
+        if (!is.null(args[["dbr.sd"]])) paste0(", dbr.sd=", signif(args[["dbr.sd"]], 3)) else "")
 set.seed(seed)
 sce <- do.call(scDblFinder, args)
 # Audit the features actually used: count the configured exclusions (names and

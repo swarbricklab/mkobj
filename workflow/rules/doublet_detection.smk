@@ -53,6 +53,32 @@ rule extract_known_doublets:
         "../scripts/extract_known_doublets.py"
 
 
+rule scdblfinder_params:
+    """
+    Choose scDblFinder's expected doublet rate per capture (params.doublets.dbr_source)
+    and record it, with the reason for any fallback.
+    """
+    input:
+        unpack(lambda wc: {
+            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            **({"captures_file": config['deps']['captures']}
+               if config['deps'].get('captures') else {}),
+        })
+    output:
+        csv = out_dir / "doublets/scdblfinder_params/{capture}.csv"
+    log:
+        log_dir / "doublet_detection/scdblfinder_params_{capture}.log"
+    params:
+        dbr_source = doublet_params()['dbr_source'],
+        per1k = doublet_params()['dbr_per1k'],
+        captures_file = config['deps'].get('captures', ''),
+        demux_root = config['deps'].get('demux', '')
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/scdblfinder_params.py"
+
+
 rule detect_doublets_scdblfinder:
     """
     scDblFinder on every called cell of a capture (package defaults). Writes
@@ -62,6 +88,7 @@ rule detect_doublets_scdblfinder:
     input:
         unpack(lambda wc: {
             "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            "params_csv": str(out_dir / f"doublets/scdblfinder_params/{wc.capture}.csv"),
             **({"known": str(out_dir / f"doublets/known/{wc.capture}.csv")}
                if known_doublets_enabled() else {}),
         })

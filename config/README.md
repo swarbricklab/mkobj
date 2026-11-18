@@ -49,6 +49,8 @@ Edit the config file to match your dataset structure.
 | `params.doublets.seed` | RNG seed for scDblFinder | `1` |
 | `params.doublets.known_use` | How scDblFinder uses genotype-detected doublets (`knownDoublets`, from `<demux>/<capture>/doublet_posteriors.csv` or else the demux `status`): `discard` or `positive` | `discard` |
 | `params.doublets.positive_exclude_genes` / `positive_exclude_patterns` | Genes (names / regexes) removed from scDblFinder's features when `known_use: positive` | sex-chromosome genes / `^HLA-` |
+| `params.doublets.dbr_source` | scDblFinder expected doublet rate: `loading` (`dbr.per1k` by `chip` column of `captures.csv`), `genotype` (`d_total`/`d_total_sd` from `<demux>/<capture>/doublet_summary.csv`, falling back to `loading`), `none` (`dbr.sd = 1`) | `loading` |
+| `params.doublets.dbr_per1k` | `dbr.per1k` per chip type | `{standard: 0.008, ht: 0.004}` |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |
