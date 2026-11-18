@@ -51,6 +51,8 @@ Edit the config file to match your dataset structure.
 | `params.doublets.positive_exclude_genes` / `positive_exclude_patterns` | Genes (names / regexes) removed from scDblFinder's features when `known_use: positive` | sex-chromosome genes / `^HLA-` |
 | `params.doublets.dbr_source` | scDblFinder expected doublet rate: `loading` (`dbr.per1k` by `chip` column of `captures.csv`), `genotype` (`d_total`/`d_total_sd` from `<demux>/<capture>/doublet_summary.csv`, falling back to `loading`), `none` (`dbr.sd = 1`) | `loading` |
 | `params.doublets.dbr_per1k` | `dbr.per1k` per chip type | `{standard: 0.008, ht: 0.004}` |
+| `params.lineages.enabled` | Label every called cell per capture with the reference classifier → `lineages/<capture_id>.csv` | `false` |
+| `params.lineages.model` | Directory of the classifier (`model.json` + `model.npz`; see `docs/lineage_classifier.md`) | — |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

@@ -89,6 +89,13 @@ params:
     dbr_source: loading
     dbr_per1k: {standard: 0.008, ht: 0.004}
 
+  # Per-capture lineage labels (annotate_lineages): every called cell labelled with
+  # a fixed reference classifier (docs/lineage_classifier.md), written to
+  # lineages/<capture_id>.csv.
+  lineages:
+    enabled: false
+    model: "resources/lineage_classifier/wu2021-v1"
+
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
   # Set to null to disable a particular filter.

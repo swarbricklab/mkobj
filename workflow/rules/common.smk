@@ -154,3 +154,22 @@ def scdblfinder_param_files():
     if not (doublets_enabled() and 'scdblfinder' in doublet_engines()):
         return []
     return [out_dir / f"doublets/scdblfinder_params/{c}.csv" for c in captures]
+
+
+# ── Per-capture lineage labels (#45) ─────────────────────────────────────────────
+def lineage_cfg():
+    """params.lineages with defaults (enabled: false)."""
+    d = dict(config.get('params', {}).get('lineages', {}))
+    d.setdefault('enabled', False)
+    if d['enabled'] and not d.get('model'):
+        raise ValueError("params.lineages.enabled is true but params.lineages.model is not set")
+    return d
+
+def lineages_enabled():
+    return bool(lineage_cfg()['enabled'])
+
+def lineage_files():
+    """The persisted per-capture lineage CSVs (empty when disabled)."""
+    if not lineages_enabled():
+        return []
+    return [out_dir / f"lineages/{c}.csv" for c in captures]

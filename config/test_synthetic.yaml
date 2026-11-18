@@ -23,3 +23,6 @@ params:
   make_seurat: false
   # Scrublet's automatic threshold is unstable on ~750 cells; pin it.
   scrublet_threshold: 0.25
+
+# Lineage labels need the toy model: python test/synthetic/make_lineage_model.py
+#   lineages: {enabled: true, model: "test/synthetic/data/lineage_model"}
