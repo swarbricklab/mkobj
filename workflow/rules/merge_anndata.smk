@@ -11,10 +11,10 @@
 # output (per_capture/).  detect_doublets then never enters the DAG and no
 # scrublet columns are added — the merged object is a true raw aggregate.
 
-_skip_scrublet = (
-    config.get('params', {}).get('skip_scrublet', False)
-    or config.get('params', {}).get('raw_only', False)
-)
+# Also when scrublet is not among params.doublets.engines (e.g. scdblfinder only):
+# the merge then reads the raw objects and the scdblfinder calls live in
+# doublets/<capture>.csv.
+_skip_scrublet = not scrublet_in_merge()
 _per_capture_dir = "per_capture_raw" if _skip_scrublet else "per_capture"
 
 if use_subsets:

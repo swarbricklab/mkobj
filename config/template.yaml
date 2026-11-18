@@ -67,8 +67,11 @@ params:
 
   # Doublet engines. Each engine's per-barcode calls are written to the persisted
   # long-format doublets/<capture_id>.csv (one row per barcode per engine).
+  # Allowed: scrublet, scdblfinder. Scrublet also sets obs.predicted_doublet,
+  # which filter_doublets uses; scdblfinder (R) currently writes calls only.
   doublets:
     engines: [scrublet]
+    seed: 1          # RNG seed for scDblFinder
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
