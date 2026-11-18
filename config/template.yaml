@@ -93,6 +93,11 @@ params:
     # Recorded in doublets/scdblfinder_params/<capture>.csv.
     dbr_source: loading
     dbr_per1k: {standard: 0.008, ht: 0.004}
+    # Clusters for scDblFinder's artificial doublets: none (random), lineage_fine
+    # or lineage_major (from lineages/<capture_id>.csv; needs lineages.enabled).
+    # Fine types with < min_cluster_size cells are folded into their major lineage.
+    clusters: none
+    min_cluster_size: 50
 
   # Per-capture lineage labels (annotate_lineages): every called cell labelled,
   # written to lineages/<capture_id>.csv (docs/lineage_classifier.md).

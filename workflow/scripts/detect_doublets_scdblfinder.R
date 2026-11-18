@@ -22,6 +22,7 @@ out_csv    <- snakemake@output[["calls"]]
 seed       <- as.integer(snakemake@params[["seed"]])
 known_csv  <- snakemake@input[["known"]]           # NULL when demux is not configured
 rate       <- read.csv(snakemake@input[["params_csv"]], stringsAsFactors = FALSE)  # #43
+clus_df    <- read.csv(snakemake@input[["clusters"]], colClasses = "character")    # #47
 known_use  <- snakemake@params[["known_use"]]
 exclude_genes    <- unlist(snakemake@params[["exclude_genes"]])
 exclude_patterns <- unlist(snakemake@params[["exclude_patterns"]])
@@ -74,6 +75,15 @@ args <- list(sce)
 if (!is.null(known)) {
     args$knownDoublets <- known
     args$knownUse <- known_use
+}
+# Clusters for artificial doublets (#47): lineage labels, or none (random).
+if (nrow(clus_df) > 0) {
+    cl <- clus_df$cluster[match(colnames(sce), clus_df$barcode)]
+    cl[is.na(cl)] <- "unlabelled"
+    args$clusters <- cl
+    message("clusters=", rate$clusters, ": passing ", length(unique(cl)), " clusters")
+} else {
+    message("clusters=none: random artificial doublets")
 }
 # Expected doublet rate (#43): see doublet_rate.py / scdblfinder_params.py.
 args$dbr.per1k <- rate$dbr_per1k

@@ -63,12 +63,17 @@ rule scdblfinder_params:
             "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
             **({"captures_file": config['deps']['captures']}
                if config['deps'].get('captures') else {}),
+            **({"lineages": str(out_dir / f"lineages/{wc.capture}.csv")}
+               if doublet_params()['clusters'] != 'none' else {}),
         })
     output:
-        csv = out_dir / "doublets/scdblfinder_params/{capture}.csv"
+        csv = out_dir / "doublets/scdblfinder_params/{capture}.csv",
+        clusters = temp(out_dir / "doublets/scdblfinder_clusters/{capture}.csv")
     log:
         log_dir / "doublet_detection/scdblfinder_params_{capture}.log"
     params:
+        clusters = doublet_params()['clusters'],
+        min_cluster_size = doublet_params()['min_cluster_size'],
         dbr_source = doublet_params()['dbr_source'],
         per1k = doublet_params()['dbr_per1k'],
         captures_file = config['deps'].get('captures', ''),
@@ -89,6 +94,7 @@ rule detect_doublets_scdblfinder:
         unpack(lambda wc: {
             "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
             "params_csv": str(out_dir / f"doublets/scdblfinder_params/{wc.capture}.csv"),
+            "clusters": str(out_dir / f"doublets/scdblfinder_clusters/{wc.capture}.csv"),
             **({"known": str(out_dir / f"doublets/known/{wc.capture}.csv")}
                if known_doublets_enabled() else {}),
         })
