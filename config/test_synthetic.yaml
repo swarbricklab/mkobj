@@ -27,6 +27,6 @@ params:
 # Lineage labels, pre-trained toy model (python test/synthetic/make_lineage_model.py):
 #   params: {lineages: {enabled: true, model: "test/synthetic/data/lineage_model"}}
 # or trained in the run from the toy reference that script writes:
-#   params: {lineages: {enabled: true, model: null, train: {reference:
+#   params: {lineages: {enabled: true, train: {reference:
 #     "test/synthetic/data/lineage_reference.h5ad", major_key: major, fine_key: fine,
 #     gene_id_key: gene_ids, n_genes: 200, n_markers: 20, version: synthetic-v1}}}

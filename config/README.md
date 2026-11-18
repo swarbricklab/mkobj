@@ -29,6 +29,7 @@ Edit the config file to match your dataset structure.
 | `deps.demux` | Path to sample assignment files from SNP demux. Each capture directory should contain `cell_assignment.tsv` |
 | `deps.annotation` | Path to cell type annotations. Each capture directory should contain `cell_types.csv` |
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
+| `deps.lineage_crosswalk` | Optional override of the reference profile's crosswalk: CSV `cellranger_label, lineage_major` mapping cellranger annotate labels to the model's major lineages (Wu 2021: `config/lineage_references/wu2021_crosswalk.csv`) |
 | `deps.lineage_markers` | Path to a lineage markers CSV used for cross-lineage doublet detection |
 
 ### Outputs
@@ -52,8 +53,13 @@ Edit the config file to match your dataset structure.
 | `params.doublets.dbr_source` | scDblFinder expected doublet rate: `loading` (`dbr.per1k` by `chip` column of `captures.csv`), `genotype` (`d_total`/`d_total_sd` from `<demux>/<capture>/doublet_summary.csv`, falling back to `loading`), `none` (`dbr.sd = 1`) | `loading` |
 | `params.doublets.dbr_per1k` | `dbr.per1k` per chip type | `{standard: 0.008, ht: 0.004}` |
 | `params.lineages.enabled` | Label every called cell per capture with the reference classifier → `lineages/<capture_id>.csv` | `false` |
-| `params.lineages.model` | Pre-trained classifier directory (`model.json` + `model.npz`; see `docs/lineage_classifier.md`). Set to `null` when using `train` | `resources/lineage_classifier/wu2021-v1` |
+| `params.lineages.reference` | Reference profile (`config/lineage_references/<name>.yaml`) supplying `model`, `crosswalk` and `agreement_collapse` for one reference; keys set in `params.lineages` override it | `config/lineage_references/wu2021.yaml` |
+| `params.lineages.model` | Pre-trained classifier directory (`model.json` + `model.npz`; see `docs/lineage_classifier.md`). Ignored when `train` is set | from the profile (`resources/lineage_classifier/wu2021-v1`) |
 | `params.lineages.train` | Train the classifier in this run instead: `reference` (h5ad), `major_key`, `fine_key` required; optional `group_key`, `use_raw`, `counts_layer`, `symbol_key`, `gene_id_key`, `target_features`, `version`, `n_genes`, `n_markers`, `min_cells_per_class`, `test_frac`, `C`, `seed`, `mem_mb`, `runtime`. Model and metrics go to `lineage_classifier/<version>/` | unset |
+| `params.lineages.source` | `model`, `crosswalk` (cellranger annotate label → major lineage via the crosswalk; fine labels NA), or `both` (adds `lineage_major_crosswalk` and `lineages/agreement/<capture_id>.csv`) | `model` |
+| `params.lineages.crosswalk` / `deps.lineage_crosswalk` | Crosswalk CSV (`cellranger_label, lineage_major`) overriding the profile's | from the profile |
+| `params.lineages.crosswalk_label_column` | Label column of `<annotation>/<capture>/cell_types.csv` used by the crosswalk | `coarse_cell_type` |
+| `params.lineages.agreement_collapse` | Model classes folded onto crosswalk names before computing agreement | from the profile (Wu: Cancer/Normal Epithelial → Epithelial) |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

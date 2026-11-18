@@ -43,28 +43,39 @@ The approach is CellTypist's, implemented in `workflow/scripts/lineage_model.py`
 
 The classifier is not tied to one atlas. Each trained model is a directory under
 `resources/lineage_classifier/<reference>-v<N>/`, tracked by DVC (remote `mkobj`,
-`/g/data/a56/dvc/analysis/mkobj`), and a run picks one with `params.lineages.model`.
-Swapping references is a config change; nothing in the model code knows about Wu 2021.
+`/g/data/a56/dvc/analysis/mkobj`). Nothing in the workflow code knows about Wu 2021.
+
+A run picks a reference with one line, `params.lineages.reference`, which names a
+**reference profile** in `config/lineage_references/<name>.yaml`. The profile bundles
+everything that uses that reference's class names:
+
+- `model`: the pre-trained model directory;
+- `crosswalk`: cellranger annotate `coarse_cell_type` → the reference's major classes
+  (`params.lineages.source: crosswalk | both`, #46);
+- `agreement_collapse`: model classes folded onto crosswalk names before computing
+  agreement (Wu: Cancer/Normal Epithelial → Epithelial).
+
+Any of these can be overridden in `params.lineages` (and the crosswalk by
+`deps.lineage_crosswalk`). Adding a reference means a model, a crosswalk and a profile.
 
 A run can also start from scratch: set `params.lineages.train` (a reference atlas and
-its label columns; see `config/README.md`) with `model: null`, and the
+its label columns; see `config/README.md`), and the
 `train_lineage_classifier` rule trains a model into `<results>/lineage_classifier/<version>/`
 before `annotate_lineages` uses it. It is the same code as the CLI below
 (`workflow/scripts/lineage_train.py`), so the same reference and settings give the same
 model. Snakemake retrains only when the reference, gene space or settings change. A model
 worth sharing can be copied to `resources/lineage_classifier/` and DVC-tracked.
 
-| Model | Reference | Labels (major / fine) | Status |
-| --- | --- | --- | --- |
-| `wu2021-v1` | Wu et al. 2021 mini-atlas (`miniatlas_cellxgene_7.1.0.h5ad`, 100k cells, 26 donors) | `celltype_major` (9) / `celltype_minor` (29) | current default |
-| `ebca-v1` | `ebca` atlas | to be decided | planned |
+| Profile | Model | Reference | Labels (major / fine) | Status |
+| --- | --- | --- | --- | --- |
+| `wu2021.yaml` | `wu2021-v1` | Wu et al. 2021 mini-atlas (`miniatlas_cellxgene_7.1.0.h5ad`, 100k cells, 26 donors) | `celltype_major` (9) / `celltype_minor` (29) | current default |
+| `ebca.yaml` | `ebca-v1` | `ebca` atlas | to be decided | planned |
 
 `model.json` records the reference file, the label keys, the training split and the
 held-out metrics, so a labels CSV can always be traced back to its reference.
 
-The class vocabulary changes with the reference. Settings that name classes (the
-cellranger crosswalk, `agreement_collapse`, `adjacent_pairs`) belong to the reference,
-not the workflow, and travel with the model as defaults.
+When training in the run, the profile's model is ignored; set `crosswalk` and
+`agreement_collapse` in `params.lineages` if the trained classes differ from the profile's.
 
 To fetch the models after cloning: `dvc pull resources/lineage_classifier/`.
 

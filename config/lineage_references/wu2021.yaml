@@ -1,0 +1,20 @@
+# Reference profile: Wu et al. 2021 breast cancer mini-atlas (Nat Genet 53:1334).
+# Everything here uses this reference's class names, so it travels with the model.
+# Select with params.lineages.reference; any key can be overridden in params.lineages.
+# Relative paths are relative to this file.
+name: wu2021
+description: >-
+  Wu 2021 mini-atlas (cellxgene 7.1.0 object, 100,064 cells, 26 donors);
+  major = celltype_major (9 classes), fine = celltype_minor (29 classes).
+
+# Pre-trained classifier (DVC: dvc pull resources/lineage_classifier/wu2021-v1.dvc).
+model: ../../resources/lineage_classifier/wu2021-v1
+
+# cellranger annotate coarse_cell_type -> Wu major lineage (source: crosswalk | both).
+crosswalk: wu2021_crosswalk.csv
+
+# The crosswalk cannot tell Cancer from Normal Epithelial; fold both onto its
+# "Epithelial" before computing model-vs-crosswalk agreement.
+agreement_collapse:
+  Cancer Epithelial: Epithelial
+  Normal Epithelial: Epithelial

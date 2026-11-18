@@ -1,0 +1,43 @@
+# Crosswalk: cellranger annotate coarse_cell_type -> Wu et al. 2021 major lineage
+# (model wu2021-v1 classes: B-cells, CAFs, Cancer Epithelial, Endothelial, Myeloid,
+# Normal Epithelial, PVL, Plasma cells, T-cells).
+# STATUS: UNREVIEWED. Built from the coarse_cell_type labels in 167 bcarc_chromium
+# captures (2.0M cells, 41 distinct labels). A human must check it, then replace this
+# line with "STATUS: reviewed by <name>, <date>".
+#
+# - "Epithelial" is not a Wu class: cellranger cannot tell Cancer from Normal
+#   Epithelial, so agreement folds those model classes onto it (agreement_collapse in
+#   wu2021.yaml). With source: crosswalk, lineage_major is "Epithelial".
+# - Mast cells and granulocytes have no Wu class and go to Myeloid.
+# - Deliberately unmapped (-> NA, logged with counts): labels that do not identify a
+#   lineage. In bcarc_chromium these are stem cell (53k), hematopoietic cell (39k),
+#   leukocyte (35k), lymphocyte (28k), abnormal cell (27k), cell (27k), glial cell (18k),
+#   mononuclear cell (16k), connective tissue cell, mesenchymal cell, precursor cell,
+#   germ cell, neuron(-associated), and rarer labels. Use source: both to see what the
+#   model calls them before adding rows.
+# - plasma cell / plasmablast do not occur as coarse labels in bcarc_chromium; kept for
+#   other cellranger versions.
+cellranger_label,lineage_major
+T cell,T-cells
+B cell,B-cells
+plasma cell,Plasma cells
+plasmablast,Plasma cells
+macrophage,Myeloid
+monocyte,Myeloid
+myeloid leukocyte,Myeloid
+dendritic cell,Myeloid
+mast cell,Myeloid
+granulocyte,Myeloid
+neutrophil,Myeloid
+epithelial cell,Epithelial
+glandular epithelial cell,Epithelial
+squamous epithelial cell,Epithelial
+columnar/cuboidal epithelial cell,Epithelial
+secretory cell,Epithelial
+serous secreting cell,Epithelial
+ciliated cell,Epithelial
+fibroblast,CAFs
+endothelial cell,Endothelial
+mural cell,PVL
+smooth muscle cell,PVL
+pericyte,PVL
