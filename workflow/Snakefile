@@ -41,7 +41,10 @@ else:
 
 # Constrain the subset wildcard to only match defined subset names
 wildcard_constraints:
-    subset = "|".join(subset_names) if subset_names else "NOSUBSETS"
+    subset = "|".join(subset_names) if subset_names else "NOSUBSETS",
+    # A capture id is a single path component (keeps doublets/{capture}.csv
+    # from matching doublets/engines/<engine>/<capture>.csv).
+    capture = "[^/]+"
 
 # Include rule files
 include: "rules/common.smk"
@@ -98,6 +101,10 @@ if use_subsets:
         add_targets(out_dir / name)
 else:
     add_targets(out_dir)
+
+# Per-capture doublet calls are persisted outputs in their own right (#40), shared
+# across subsets like the per-capture objects.
+targets.extend(doublet_call_files())
 
 rule all:
     input:

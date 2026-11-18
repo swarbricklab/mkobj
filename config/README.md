@@ -45,6 +45,7 @@ Edit the config file to match your dataset structure.
 | `params.modality` | How to handle multimodal data (`auto`, `Gene Expression`) | `auto` |
 | `params.scrublet_threshold` | Threshold for flagging standard computational scrublet doublets | `0.2` |
 | `params.cross_lineage_threshold` | Ratio of markers expressed to flag crossing over an explicit lineage | `0.7` |
+| `params.doublets.engines` | Doublet engines whose calls go into `doublets/<capture_id>.csv` | `[scrublet]` |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

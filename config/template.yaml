@@ -65,6 +65,11 @@ params:
   # Cross-lineage score threshold: > 0.7 markers of >1 lineage flags a doublet
   cross_lineage_threshold: 0.7
 
+  # Doublet engines. Each engine's per-barcode calls are written to the persisted
+  # long-format doublets/<capture_id>.csv (one row per barcode per engine).
+  doublets:
+    engines: [scrublet]
+
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
   # Set to null to disable a particular filter.
