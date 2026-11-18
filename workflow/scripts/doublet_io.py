@@ -94,3 +94,42 @@ def read_calls(path) -> pd.DataFrame:
     df = pd.read_csv(path, dtype={"capture_id": str, "barcode": str, "engine": str},
                      float_precision="round_trip")
     return validate_calls(df, str(path))
+
+
+# ── Known (genotype-detected) doublets (#42) ─────────────────────────────────────
+KNOWN_COLUMNS = ["capture_id", "barcode", "known_doublet", "known_source"]
+
+
+def known_from_posteriors(post: pd.DataFrame, capture: str) -> pd.DataFrame:
+    """Known doublets from snp_demux's doublet_posteriors.csv (swarbricklab/snp_demux#53):
+    consensus_status == 'doublet'."""
+    missing = {"barcode", "consensus_status"} - set(post.columns)
+    if missing:
+        raise ValueError(f"doublet_posteriors.csv for {capture} missing {sorted(missing)}")
+    return pd.DataFrame({
+        "capture_id": capture,
+        "barcode": post["barcode"].astype(str).values,
+        "known_doublet": post["consensus_status"].astype(str).str.lower().eq("doublet").values,
+        "known_source": "doublet_posteriors",
+    })
+
+
+def known_from_status(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
+    """Known doublets from the per-capture object's demux `status` column
+    (create_anndata's resolution: singlet / doublet / unassigned)."""
+    return pd.DataFrame({
+        "capture_id": capture,
+        "barcode": strip_capture_prefix(obs.index, capture),
+        "known_doublet": obs["status"].astype(str).eq("doublet").values,
+        "known_source": "assignment_status",
+    })
+
+
+def attach_known(calls: pd.DataFrame, known: pd.DataFrame) -> pd.DataFrame:
+    """Left-join known_doublet onto long-format calls by (capture_id, barcode).
+    Barcodes absent from `known` get False."""
+    k = known[["capture_id", "barcode", "known_doublet"]]
+    out = calls.drop(columns=["known_doublet"], errors="ignore").merge(
+        k, on=["capture_id", "barcode"], how="left", validate="many_to_one")
+    out["known_doublet"] = out["known_doublet"].astype("boolean").fillna(False).astype(bool)
+    return validate_calls(out)
