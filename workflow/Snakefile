@@ -105,6 +105,7 @@ else:
 # Per-capture doublet calls are persisted outputs in their own right (#40), shared
 # across subsets like the per-capture objects.
 targets.extend(doublet_call_files())
+targets.extend(scdblfinder_param_files())
 
 rule all:
     input:

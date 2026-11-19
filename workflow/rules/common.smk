@@ -143,4 +143,14 @@ def doublet_params():
         'XIST', 'TSIX', 'RPS4Y1', 'DDX3Y', 'UTY', 'KDM5D', 'EIF1AY', 'ZFY',
         'USP9Y', 'NLGN4Y', 'TXLNGY', 'PRKY'])
     d.setdefault('positive_exclude_patterns', ['^HLA-'])
+    d.setdefault('dbr_source', 'loading')
+    if d['dbr_source'] not in ('genotype', 'loading', 'none'):
+        raise ValueError(f"params.doublets.dbr_source={d['dbr_source']!r}: use genotype|loading|none")
+    d['dbr_per1k'] = {'standard': 0.008, 'ht': 0.004, **d.get('dbr_per1k', {})}
     return d
+
+def scdblfinder_param_files():
+    """Persisted per-capture scDblFinder parameter records (#43)."""
+    if not (doublets_enabled() and 'scdblfinder' in doublet_engines()):
+        return []
+    return [out_dir / f"doublets/scdblfinder_params/{c}.csv" for c in captures]

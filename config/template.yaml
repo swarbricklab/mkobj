@@ -80,6 +80,14 @@ params:
     known_use: discard
     positive_exclude_genes: [XIST, TSIX, RPS4Y1, DDX3Y, UTY, KDM5D, EIF1AY, ZFY, USP9Y, NLGN4Y, TXLNGY, PRKY]
     positive_exclude_patterns: ["^HLA-"]
+    # Expected doublet rate for scDblFinder, per capture:
+    #   loading  (default) dbr.per1k from captures.csv `chip` (standard/ht; values below)
+    #   genotype dbr = d_total, dbr.sd = d_total_sd from <demux>/<capture>/doublet_summary.csv
+    #            (snp_demux#55; a lower bound). Falls back to loading, logged.
+    #   none     dbr.sd = 1 (no expectation)
+    # Recorded in doublets/scdblfinder_params/<capture>.csv.
+    dbr_source: loading
+    dbr_per1k: {standard: 0.008, ht: 0.004}
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
