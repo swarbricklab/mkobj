@@ -79,9 +79,16 @@ if (!is.null(known)) {
 # Clusters for artificial doublets (#47): lineage labels, or none (random).
 if (nrow(clus_df) > 0) {
     cl <- clus_df$cluster[match(colnames(sce), clus_df$barcode)]
+    n_missing <- sum(is.na(cl))
+    # Lineage labels cover every called cell (#45); many misses means the barcodes
+    # don't line up (e.g. a capture prefix), which would silently give one cluster.
+    if (n_missing > 0.05 * length(cl))
+        stop(n_missing, "/", length(cl), " cells have no lineage label in ",
+             snakemake@input[["clusters"]], "; check that barcodes match")
     cl[is.na(cl)] <- "unlabelled"
     args$clusters <- cl
-    message("clusters=", rate$clusters, ": passing ", length(unique(cl)), " clusters")
+    message("clusters=", rate$clusters, ": passing ", length(unique(cl)), " clusters (",
+            n_missing, " cells without a label -> unlabelled)")
 } else {
     message("clusters=none: random artificial doublets")
 }

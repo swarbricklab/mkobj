@@ -53,7 +53,7 @@ Edit the config file to match your dataset structure.
 | `params.doublets.dbr_source` | scDblFinder expected doublet rate: `loading` (`dbr.per1k` by `chip` column of `captures.csv`), `genotype` (`d_total`/`d_total_sd` from `<demux>/<capture>/doublet_summary.csv`, falling back to `loading`), `none` (`dbr.sd = 1`) | `loading` |
 | `params.doublets.dbr_per1k` | `dbr.per1k` per chip type | `{standard: 0.008, ht: 0.004}` |
 | `params.doublets.clusters` | scDblFinder `clusters`: `none` (random artificial doublets), `lineage_fine` or `lineage_major` (needs `params.lineages.enabled`) | `none` |
-| `params.doublets.min_cluster_size` | Fine types with fewer cells are folded into their major lineage | `50` |
+| `params.doublets.min_cluster_size` | Fine types with fewer cells are folded into their major lineage; a folded remnant still below it joins the largest fine type of that lineage. Lineages that are small as a whole stay their own cluster | `50` |
 | `params.lineages.enabled` | Label every called cell per capture with the reference classifier → `lineages/<capture_id>.csv` | `false` |
 | `params.lineages.reference` | Reference profile (`config/lineage_references/<name>.yaml`) supplying `model`, `crosswalk` and `agreement_collapse` for one reference; keys set in `params.lineages` override it | `config/lineage_references/wu2021.yaml` |
 | `params.lineages.model` | Pre-trained classifier directory (`model.json` + `model.npz`; see `docs/lineage_classifier.md`). Ignored when `train` is set | from the profile (`resources/lineage_classifier/wu2021-v1`) |
