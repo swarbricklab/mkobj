@@ -157,13 +157,48 @@ def scdblfinder_param_files():
 
 
 # ── Per-capture lineage labels (#45) ─────────────────────────────────────────────
+_LINEAGE_TRAIN_REQUIRED = ('reference', 'major_key', 'fine_key')
+
 def lineage_cfg():
-    """params.lineages with defaults (enabled: false)."""
+    """params.lineages with defaults (enabled: false).
+
+    The classifier comes from exactly one of:
+      model: a pre-trained model directory (e.g. resources/lineage_classifier/wu2021-v1)
+      train: a reference atlas to train from in this run (train_lineage_classifier)
+    """
     d = dict(config.get('params', {}).get('lineages', {}))
     d.setdefault('enabled', False)
-    if d['enabled'] and not d.get('model'):
-        raise ValueError("params.lineages.enabled is true but params.lineages.model is not set")
+    if d.get('train'):
+        t = dict(d['train'])
+        missing = [k for k in _LINEAGE_TRAIN_REQUIRED if not t.get(k)]
+        if missing:
+            raise ValueError(f"params.lineages.train is missing {missing}")
+        t.setdefault('version', Path(t['reference']).stem)
+        d['train'] = t
+    if d['enabled']:
+        if d.get('model') and d.get('train'):
+            raise ValueError("params.lineages: set either model (pre-trained) or train "
+                             "(train from a reference), not both")
+        if not d.get('model') and not d.get('train'):
+            raise ValueError("params.lineages.enabled is true but neither "
+                             "params.lineages.model nor params.lineages.train is set")
     return d
+
+def lineage_model_dir():
+    """Directory of the classifier used by annotate_lineages: the configured
+    pre-trained model, or the one trained in this run under the results directory."""
+    d = lineage_cfg()
+    if d.get('train'):
+        return out_dir / "lineage_classifier" / d['train']['version']
+    return Path(d['model'])
+
+def lineage_target_features():
+    """Gene space the trained panel is restricted to: params.lineages.train.target_features,
+    or the features.tsv.gz of the first capture's Cell Ranger matrix."""
+    t = lineage_cfg()['train']
+    if t.get('target_features'):
+        return t['target_features']
+    return str(Path(config['deps']['cellranger']) / captures[0] / "features.tsv.gz")
 
 def lineages_enabled():
     return bool(lineage_cfg()['enabled'])

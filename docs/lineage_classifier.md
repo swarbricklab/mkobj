@@ -46,6 +46,14 @@ The classifier is not tied to one atlas. Each trained model is a directory under
 `/g/data/a56/dvc/analysis/mkobj`), and a run picks one with `params.lineages.model`.
 Swapping references is a config change; nothing in the model code knows about Wu 2021.
 
+A run can also start from scratch: set `params.lineages.train` (a reference atlas and
+its label columns; see `config/README.md`) with `model: null`, and the
+`train_lineage_classifier` rule trains a model into `<results>/lineage_classifier/<version>/`
+before `annotate_lineages` uses it. It is the same code as the CLI below
+(`workflow/scripts/lineage_train.py`), so the same reference and settings give the same
+model. Snakemake retrains only when the reference, gene space or settings change. A model
+worth sharing can be copied to `resources/lineage_classifier/` and DVC-tracked.
+
 | Model | Reference | Labels (major / fine) | Status |
 | --- | --- | --- | --- |
 | `wu2021-v1` | Wu et al. 2021 mini-atlas (`miniatlas_cellxgene_7.1.0.h5ad`, 100k cells, 26 donors) | `celltype_major` (9) / `celltype_minor` (29) | current default |
