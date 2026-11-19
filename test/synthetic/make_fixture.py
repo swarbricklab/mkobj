@@ -18,6 +18,7 @@ Outputs (under --out, default test/synthetic/data):
   cellranger/<capture>/{barcodes,features}.tsv.gz, matrix.mtx.gz
   demux/<capture>/cell_assignment.tsv, sample_barcode_assignments.tsv
   annotation/<capture>/cell_types.csv      (cellranger-annotate-style labels)
+  lineage_crosswalk.csv                    (coarse label -> major lineage)
   truth/<capture>.csv                      (barcode, donor(s), fine/major type, is_doublet)
   captures.csv, samples.csv
 
@@ -50,13 +51,16 @@ MARKERS = {
     "CD4": ["PTPRC", "CD3E", "CD3D", "CD2", "CD4", "IL7R", "CCR7", "FOXP3"],
     "CD8": ["PTPRC", "CD3E", "CD3D", "CD2", "CD8A", "CD8B", "GZMK", "NKG7"],
 }
-# cellranger annotate-style labels, deliberately inconsistent across types.
+# cellranger annotate-style labels (coarse_cell_type, fine_cell_type).
 CR_LABEL = {
-    "LumHR": "luminal epithelial cell of mammary gland",
-    "Basal": "basal cell",
-    "CD4": "CD4-positive, alpha-beta T cell",
-    "CD8": "T cell",
+    "LumHR": ("epithelial cell", "luminal epithelial cell of mammary gland"),
+    "Basal": ("epithelial cell", "basal cell"),
+    "CD4": ("T cell", "CD4-positive, alpha-beta T cell"),
+    "CD8": ("T cell", "CD8-positive, alpha-beta T cell"),
 }
+# Crosswalk from coarse label to the synthetic model's major vocabulary
+# ("unknown cell type" is deliberately left unmapped).
+CROSSWALK = {"epithelial cell": "Epithelial", "T cell": "T-cells"}
 SEX_GENES = {"F": ["XIST"], "M": ["RPS4Y1", "DDX3Y", "UTY", "KDM5D", "EIF1AY"]}
 HLA = ["HLA-A", "HLA-B", "HLA-C", "HLA-DRA"]
 N_FILLER = 900
@@ -146,10 +150,12 @@ def make_capture(rng, capture, donors, genes, out):
     # cellranger annotate-style labels (with one unmapped oddball label)
     an = out / "annotation" / capture
     an.mkdir(parents=True, exist_ok=True)
-    labels = truth["fine"].map(CR_LABEL)
-    labels[rng.random(len(labels)) < 0.01] = "unknown cell type"
-    pd.DataFrame({"barcode": barcodes, "cell_type": labels}).to_csv(
-        an / "cell_types.csv", index=False)
+    coarse = truth["fine"].map(lambda f: CR_LABEL[f][0])
+    fine = truth["fine"].map(lambda f: CR_LABEL[f][1])
+    odd = rng.random(len(coarse)) < 0.01
+    coarse[odd] = fine[odd] = "unknown cell type"
+    pd.DataFrame({"barcode": barcodes, "coarse_cell_type": coarse,
+                  "fine_cell_type": fine}).to_csv(an / "cell_types.csv", index=False)
 
     (out / "truth").mkdir(parents=True, exist_ok=True)
     truth.assign(capture_id=capture, demux_doublet=cross.values).to_csv(
@@ -175,6 +181,8 @@ def main():
     rows = [dict(sample_id=s, capture_id=c, donor_id=f"D{s[1:]}", tissue_id=f"T{s[1:]}")
             for c, ss in CAPTURES.items() for s in ss if s in COHORT]
     pd.DataFrame(rows).to_csv(out / "samples.csv", index=False)
+    pd.DataFrame({"cellranger_label": list(CROSSWALK), "lineage_major": list(CROSSWALK.values())}
+                 ).to_csv(out / "lineage_crosswalk.csv", index=False)
     print(f"Wrote synthetic fixture to {out}: {counts}")
 
 

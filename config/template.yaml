@@ -32,6 +32,11 @@ deps:
   # Expected format: CSV with cell types as headers/index and marker genes listed.
   lineage_markers: ""
 
+  # [Optional] Override the reference profile's crosswalk from cellranger annotate
+  # labels to major lineages (params.lineages.source: crosswalk | both).
+  # CSV: cellranger_label, lineage_major, in the model's major vocabulary.
+  # lineage_crosswalk: "config/lineage_references/wu2021_crosswalk.csv"
+
 # Outputs
 outs:
   results: "data/objects"
@@ -89,14 +94,24 @@ params:
     dbr_source: loading
     dbr_per1k: {standard: 0.008, ht: 0.004}
 
-  # Per-capture lineage labels (annotate_lineages): every called cell labelled with
-  # a reference classifier (docs/lineage_classifier.md), written to
-  # lineages/<capture_id>.csv. Use EITHER a pre-trained model (model:, fetched with
-  # `dvc pull resources/lineage_classifier/`) OR train one in this run (train:, with
-  # model: null). Training runs once and is reused until its inputs or settings change.
+  # Per-capture lineage labels (annotate_lineages): every called cell labelled,
+  # written to lineages/<capture_id>.csv (docs/lineage_classifier.md).
+  #   reference: a reference profile bundling the pre-trained model, the cellranger
+  #              crosswalk and agreement_collapse, which all use that reference's class
+  #              names. Switching reference (e.g. to ebca) is this one line. Models are
+  #              fetched with `dvc pull resources/lineage_classifier/`.
+  #   source:    model (classifier), crosswalk (cellranger annotate labels mapped to
+  #              major lineages; no fine labels), or both (model labels plus
+  #              lineage_major_crosswalk and lineages/agreement/<capture_id>.csv).
+  # Any profile key (model, crosswalk, agreement_collapse) can be set here to override
+  # it. To train the classifier in this run instead of using a pre-trained model, set
+  # train: (the profile's model is then ignored); training runs once and is reused
+  # until its inputs or settings change.
   lineages:
     enabled: false
-    model: "resources/lineage_classifier/wu2021-v1"
+    reference: "config/lineage_references/wu2021.yaml"
+    source: model
+    crosswalk_label_column: coarse_cell_type   # column of <annotation>/<capture>/cell_types.csv
     # train:
     #   reference: /path/to/atlas.h5ad      # raw counts in X, a layer, or .raw
     #   major_key: celltype_major           # obs column: major lineage

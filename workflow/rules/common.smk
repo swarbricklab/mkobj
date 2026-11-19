@@ -158,16 +158,55 @@ def scdblfinder_param_files():
 
 # ── Per-capture lineage labels (#45) ─────────────────────────────────────────────
 _LINEAGE_TRAIN_REQUIRED = ('reference', 'major_key', 'fine_key')
+# Settings a reference profile may supply. They name the reference's classes, so they
+# belong to the reference, not the workflow.
+_LINEAGE_PROFILE_KEYS = ('model', 'crosswalk', 'agreement_collapse')
+
+def _load_lineage_profile(path):
+    """Reference profile YAML (e.g. config/lineage_references/wu2021.yaml). Relative
+    paths inside it (model, crosswalk) are relative to the profile file."""
+    import os
+    import yaml
+    with open(path) as fh:
+        prof = yaml.safe_load(fh) or {}
+    unknown = set(prof) - set(_LINEAGE_PROFILE_KEYS) - {'name', 'description'}
+    if unknown:
+        raise ValueError(f"lineage reference profile {path}: unknown keys {sorted(unknown)}")
+    base = Path(path).parent
+    for k in ('model', 'crosswalk'):
+        if prof.get(k) and not Path(prof[k]).is_absolute():
+            prof[k] = os.path.normpath(base / prof[k])
+    return prof
 
 def lineage_cfg():
-    """params.lineages with defaults (enabled: false).
+    """params.lineages with defaults (enabled: false), merged with the reference profile.
 
     The classifier comes from exactly one of:
       model: a pre-trained model directory (e.g. resources/lineage_classifier/wu2021-v1)
       train: a reference atlas to train from in this run (train_lineage_classifier)
+    params.lineages.reference names a profile that supplies model, crosswalk and
+    agreement_collapse for one reference; keys set in params.lineages win, and a
+    profile's model is ignored when train is set. deps.lineage_crosswalk, if set,
+    overrides the crosswalk.
     """
     d = dict(config.get('params', {}).get('lineages', {}))
     d.setdefault('enabled', False)
+    if d.get('reference'):
+        prof = _load_lineage_profile(d['reference'])
+        for k in _LINEAGE_PROFILE_KEYS:
+            if k == 'model' and d.get('train'):
+                continue
+            if k not in d and prof.get(k) is not None:
+                d[k] = prof[k]
+    if config.get('deps', {}).get('lineage_crosswalk'):
+        d['crosswalk'] = config['deps']['lineage_crosswalk']
+    d.setdefault('source', 'model')
+    d.setdefault('crosswalk_label_column', 'coarse_cell_type')
+    # Model classes folded onto crosswalk names before computing agreement (e.g. Wu
+    # 2021's Cancer/Normal Epithelial -> Epithelial); comes with the reference profile.
+    d['agreement_collapse'] = dict(d.get('agreement_collapse') or {})
+    if d['source'] not in ('model', 'crosswalk', 'both'):
+        raise ValueError(f"params.lineages.source={d['source']!r}: use model|crosswalk|both")
     if d.get('train'):
         t = dict(d['train'])
         missing = [k for k in _LINEAGE_TRAIN_REQUIRED if not t.get(k)]
@@ -176,13 +215,28 @@ def lineage_cfg():
         t.setdefault('version', Path(t['reference']).stem)
         d['train'] = t
     if d['enabled']:
-        if d.get('model') and d.get('train'):
-            raise ValueError("params.lineages: set either model (pre-trained) or train "
-                             "(train from a reference), not both")
-        if not d.get('model') and not d.get('train'):
-            raise ValueError("params.lineages.enabled is true but neither "
-                             "params.lineages.model nor params.lineages.train is set")
+        if d['source'] in ('model', 'both'):
+            if d.get('model') and d.get('train'):
+                raise ValueError("params.lineages: set either model (pre-trained) or train "
+                                 "(train from a reference), not both")
+            if not d.get('model') and not d.get('train'):
+                raise ValueError(f"params.lineages.source={d['source']} needs a classifier: "
+                                 "set params.lineages.reference, model or train")
+        if d['source'] in ('crosswalk', 'both'):
+            if not d.get('crosswalk'):
+                raise ValueError(f"params.lineages.source={d['source']} needs a crosswalk: "
+                                 "params.lineages.reference (profile), crosswalk, or "
+                                 "deps.lineage_crosswalk")
+            if not config.get('deps', {}).get('annotation'):
+                raise ValueError(f"params.lineages.source={d['source']} needs deps.annotation")
     return d
+
+def lineage_annotation_file(capture):
+    """cellranger annotate labels for a capture, or None without deps.annotation. The
+    file may not exist; then the capture's crosswalk labels are NA."""
+    if not config.get('deps', {}).get('annotation'):
+        return None
+    return Path(config['deps']['annotation']) / capture / "cell_types.csv"
 
 def lineage_model_dir():
     """Directory of the classifier used by annotate_lineages: the configured
@@ -207,4 +261,7 @@ def lineage_files():
     """The persisted per-capture lineage CSVs (empty when disabled)."""
     if not lineages_enabled():
         return []
-    return [out_dir / f"lineages/{c}.csv" for c in captures]
+    files = [out_dir / f"lineages/{c}.csv" for c in captures]
+    if lineage_cfg()['source'] == 'both':
+        files += [out_dir / f"lineages/agreement/{c}.csv" for c in captures]
+    return files
