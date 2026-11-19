@@ -114,6 +114,27 @@ def known_from_posteriors(post: pd.DataFrame, capture: str) -> pd.DataFrame:
     })
 
 
+def posteriors_resolve_doublets(post: pd.DataFrame) -> tuple[bool, str]:
+    """Can doublet_posteriors.csv's consensus_status tell doublets apart?
+
+    snp_demux's cell_assignment.tsv records only 'singlet' or NA; the
+    doublet/unassigned split comes from sample_barcode_assignments.tsv, which
+    create_anndata resolves into the per-capture `status`. If the posteriors file
+    passes that singlet/NA vocabulary through, every non-singlet is NA and
+    'doublet' never appears, so using it would silently give zero known doublets.
+    Usable only when every status is a resolved value.
+    """
+    status = post["consensus_status"]
+    n_na = int(status.isna().sum() + status.astype(str).str.strip().isin(["", "NA", "nan"]).sum())
+    if n_na:
+        return False, f"{n_na} barcodes have NA consensus_status (unresolved singlet/NA vocabulary)"
+    vocab = set(status.astype(str).str.lower())
+    unknown = vocab - {"singlet", "doublet", "unassigned", "recovered"}
+    if unknown:
+        return False, f"unexpected consensus_status values {sorted(unknown)}"
+    return True, f"consensus_status values {sorted(vocab)}"
+
+
 def known_from_status(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
     """Known doublets from the per-capture object's demux `status` column
     (create_anndata's resolution: singlet / doublet / unassigned)."""

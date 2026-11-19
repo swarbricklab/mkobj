@@ -83,3 +83,16 @@ def test_attach_known_fills_false_for_unlisted():
     out = attach_known(calls, known)
     assert out["known_doublet"].tolist() == [False, True]
     assert list(out.columns[:5]) == COLUMNS
+
+
+def test_posteriors_with_unresolved_vocabulary_are_rejected():
+    from doublet_io import posteriors_resolve_doublets
+    # snp_demux cell_assignment.tsv passes through as singlet / NA: no doublets visible
+    raw = pd.DataFrame({"barcode": ["A-1", "B-1"], "consensus_status": ["singlet", None]})
+    ok, why = posteriors_resolve_doublets(raw)
+    assert not ok and "NA" in why
+    resolved = pd.DataFrame({"barcode": ["A-1", "B-1", "C-1"],
+                             "consensus_status": ["singlet", "doublet", "unassigned"]})
+    assert posteriors_resolve_doublets(resolved)[0]
+    odd = pd.DataFrame({"barcode": ["A-1"], "consensus_status": ["maybe"]})
+    assert not posteriors_resolve_doublets(odd)[0]

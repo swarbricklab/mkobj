@@ -76,8 +76,11 @@ if (!is.null(known)) {
 }
 set.seed(seed)
 sce <- do.call(scDblFinder, args)
-message("Features used (", nrow(sce), "): excluded genes present = ",
-        sum(rowData(sce)$gene_name %in% exclude_genes))
+# Audit the features actually used: count the configured exclusions (names and
+# patterns) still present. Expect 0 with knownUse = "positive".
+still <- rowData(sce)$gene_name %in% exclude_genes
+for (p in exclude_patterns) still <- still | grepl(p, rowData(sce)$gene_name)
+message("Features used (", nrow(sce), "): excluded genes/patterns present = ", sum(still))
 
 calls <- data.frame(
     capture_id    = capture,
