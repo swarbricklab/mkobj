@@ -92,3 +92,24 @@ def filter_enabled():
 def filter_output_name():
     """File name of the filtered deposit object (under the subset/root dir)."""
     return filter_cfg().get('output', 'filtered.raw.h5ad')
+
+
+# ── Doublet detection (#40/#41) ──────────────────────────────────────────────────
+# Doublet detection runs unless the raw-deposit switches skip it. Each engine in
+# params.doublets.engines writes its own calls; they are combined into the
+# persisted doublets/<capture>.csv.
+
+def doublets_enabled():
+    """False when params.skip_scrublet / params.raw_only drop doublet detection."""
+    p = config.get('params', {})
+    return not (p.get('skip_scrublet', False) or p.get('raw_only', False))
+
+def doublet_engines():
+    """Engines from params.doublets.engines (default: scrublet only)."""
+    return list(config.get('params', {}).get('doublets', {}).get('engines', ['scrublet']))
+
+def doublet_call_files():
+    """The persisted per-capture doublet CSVs (empty when detection is off)."""
+    if not doublets_enabled():
+        return []
+    return [out_dir / f"doublets/{c}.csv" for c in captures]

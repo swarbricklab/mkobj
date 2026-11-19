@@ -12,6 +12,8 @@ import scanpy as sc
 import anndata as ad
 from pathlib import Path
 
+from doublet_io import scrublet_calls, write_calls
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +34,7 @@ sys.excepthook = _excepthook
 # Inputs
 input_h5ad = snakemake.input.h5ad
 output_h5ad = snakemake.output.h5ad
+output_calls = snakemake.output.calls
 markers_file = snakemake.params.get("lineage_markers", "")
 scrublet_threshold = snakemake.params.get("scrublet_threshold", 0.2)
 cross_lineage_threshold = snakemake.params.get("cross_lineage_threshold", 0.7)
@@ -89,6 +92,13 @@ else:
 adata.obs['predicted_doublet'] = adata.obs['predicted_scrublet'] | adata.obs['predicted_cross_lineage_doublet']
 total_predicted = adata.obs['predicted_doublet'].sum()
 logger.info(f"Total predicted doublets combined: {total_predicted} ({(total_predicted/adata.n_obs)*100:.2f}%)")
+
+# Persist the Scrublet calls in the long-format schema (#40); combined across
+# engines into doublets/<capture>.csv by combine_doublet_calls.
+calls = scrublet_calls(adata.obs, capture)
+Path(output_calls).parent.mkdir(parents=True, exist_ok=True)
+write_calls(calls, output_calls)
+logger.info(f"Wrote {len(calls)} Scrublet call rows to {output_calls}")
 
 # Save
 logger.info(f"Saving to {output_h5ad}")
