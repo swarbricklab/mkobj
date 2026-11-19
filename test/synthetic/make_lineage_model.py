@@ -2,7 +2,8 @@
 """
 test/synthetic/make_lineage_model.py
 Train a toy lineage classifier on the synthetic fixture (CAP_A singlets) with
-tools/train_lineage_classifier.py, for running annotate_lineages locally.
+tools/train_lineage_classifier.py, for running annotate_lineages locally. The
+reference it writes (data/lineage_reference.h5ad) also feeds params.lineages.train.
 Run make_fixture.py first. Writes test/synthetic/data/lineage_model/.
 """
 import subprocess

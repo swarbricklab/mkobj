@@ -51,6 +51,7 @@ include: "rules/common.smk"
 include: "rules/create_seurat.smk"
 include: "rules/merge.smk"
 include: "rules/create_anndata.smk"
+include: "rules/annotate_lineages.smk"
 include: "rules/doublet_detection.smk"
 include: "rules/merge_anndata.smk"
 include: "rules/filter_deposit.smk"
@@ -106,6 +107,7 @@ else:
 # across subsets like the per-capture objects.
 targets.extend(doublet_call_files())
 targets.extend(scdblfinder_param_files())
+targets.extend(lineage_files())
 
 rule all:
     input:

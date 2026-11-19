@@ -242,6 +242,7 @@ outs:
 |------|-------------|
 | `merged.qs` | Merged Seurat object (R, serialized with [qs](https://github.com/traversc/qs)) |
 | `merged.h5ad` | Merged AnnData object (Python, [HDF5-backed](https://anndata.readthedocs.io/en/latest/fileformat-prose.html)) |
+| `lineages/<capture_id>.csv` | Per-capture lineage labels for every called cell (doublets included), when `params.lineages.enabled`: `capture_id, barcode, lineage_major, lineage_fine, confidence_major, confidence_fine, label_source`. |
 | `doublets/scdblfinder_params/<capture_id>.csv` | Per-capture scDblFinder parameters actually used (`dbr_used`, `dbr_sd_used`, `dbr_source_used`, fallback reason). Only with the `scdblfinder` engine. |
 | `doublets/<capture_id>.csv` | Per-capture doublet calls, persisted (not `temp`). Long format, one row per called barcode per engine: `capture_id, barcode, engine, doublet_score, doublet_call` (+ `cross_lineage_flag` when lineage markers are configured, `known_doublet` when `deps.demux` is set). `barcode` is the raw Cell Ranger barcode, without the capture prefix. Not written when `skip_scrublet`/`raw_only` is set. |
 

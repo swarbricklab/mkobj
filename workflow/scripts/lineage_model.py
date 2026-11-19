@@ -16,7 +16,7 @@ never depends on the scikit-learn version used for training:
                           the sha256 of model.npz (checked on load)
 
 Training uses scikit-learn (shipped with scanpy) and is done once, offline
-(tools/train_lineage_classifier.py). Prediction runs in
+(workflow/scripts/lineage_train.py, CLI tools/train_lineage_classifier.py). Prediction runs in
 the existing scanpy container. Pure functions only (no snakemake globals).
 """
 

@@ -89,6 +89,28 @@ params:
     dbr_source: loading
     dbr_per1k: {standard: 0.008, ht: 0.004}
 
+  # Per-capture lineage labels (annotate_lineages): every called cell labelled with
+  # a reference classifier (docs/lineage_classifier.md), written to
+  # lineages/<capture_id>.csv. Use EITHER a pre-trained model (model:, fetched with
+  # `dvc pull resources/lineage_classifier/`) OR train one in this run (train:, with
+  # model: null). Training runs once and is reused until its inputs or settings change.
+  lineages:
+    enabled: false
+    model: "resources/lineage_classifier/wu2021-v1"
+    # train:
+    #   reference: /path/to/atlas.h5ad      # raw counts in X, a layer, or .raw
+    #   major_key: celltype_major           # obs column: major lineage
+    #   fine_key: celltype_minor            # obs column: fine cell type
+    #   group_key: donor_id                 # hold out whole donors for the metrics (recommended)
+    #   use_raw: false                      # counts in .raw (CELLxGENE-schema objects)
+    #   counts_layer: null                  # or a layer name holding counts
+    #   symbol_key: null                    # var column with gene symbols (default var_names)
+    #   gene_id_key: null                   # var column with Ensembl ids, or "index"
+    #   target_features: null               # default: first capture's Cell Ranger features.tsv.gz
+    #   version: null                       # default: reference file name; model goes to
+    #                                       # <results>/lineage_classifier/<version>/
+    #   mem_mb: 32000
+
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
   # Set to null to disable a particular filter.
