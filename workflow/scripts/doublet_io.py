@@ -68,7 +68,29 @@ def combine_calls(frames: list[pd.DataFrame]) -> pd.DataFrame:
     return validate_calls(combined, "combined")
 
 
+def _float_repr(x) -> str:
+    """Shortest string that round-trips to the same float64 ('' for NA)."""
+    return "" if pd.isna(x) else repr(float(x))
+
+
+def write_calls(df: pd.DataFrame, path) -> None:
+    """Write calls so float columns round-trip exactly.
+
+    pandas' default to_csv float formatting is not guaranteed to round-trip
+    (pandas 3 writes 16 significant digits, losing the last bit of e.g.
+    0.17030567685589518), so the persisted scores would not equal the obs values.
+    Format floats with Python's shortest round-trip repr instead.
+    """
+    out = df.copy()
+    for col in out.columns:
+        if pd.api.types.is_float_dtype(out[col]):
+            out[col] = out[col].map(_float_repr)
+    out.to_csv(path, index=False)
+
+
 def read_calls(path) -> pd.DataFrame:
-    """Read a doublets/<capture>.csv with stable dtypes (barcodes/ids as str)."""
-    df = pd.read_csv(path, dtype={"capture_id": str, "barcode": str, "engine": str})
+    """Read a doublets/<capture>.csv with stable dtypes (barcodes/ids as str)
+    and exact float round-trip."""
+    df = pd.read_csv(path, dtype={"capture_id": str, "barcode": str, "engine": str},
+                     float_precision="round_trip")
     return validate_calls(df, str(path))

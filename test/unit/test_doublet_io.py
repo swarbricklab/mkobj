@@ -48,3 +48,16 @@ def test_validate_rejects_duplicates_and_missing():
         combine_calls([a, a])
     with pytest.raises(ValueError, match="missing"):
         validate_calls(a.drop(columns="doublet_score"))
+
+
+def test_write_read_round_trips_scores_exactly(tmp_path):
+    from doublet_io import read_calls, write_calls
+    obs = _obs(cross=True)
+    obs["doublet_score"] = [0.17030567685589518, 1 / 3]
+    df = scrublet_calls(obs, "CAP_A")
+    path = tmp_path / "calls.csv"
+    write_calls(df, path)
+    back = read_calls(path)
+    assert back["doublet_score"].tolist() == df["doublet_score"].tolist()
+    assert back["doublet_call"].tolist() == df["doublet_call"].tolist()
+    assert back["cross_lineage_flag"].tolist() == df["cross_lineage_flag"].tolist()

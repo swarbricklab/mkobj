@@ -12,7 +12,7 @@ import scanpy as sc
 import anndata as ad
 from pathlib import Path
 
-from doublet_io import scrublet_calls
+from doublet_io import scrublet_calls, write_calls
 
 # Set up logging
 logging.basicConfig(
@@ -97,7 +97,7 @@ logger.info(f"Total predicted doublets combined: {total_predicted} ({(total_pred
 # engines into doublets/<capture>.csv by combine_doublet_calls.
 calls = scrublet_calls(adata.obs, capture)
 Path(output_calls).parent.mkdir(parents=True, exist_ok=True)
-calls.to_csv(output_calls, index=False)
+write_calls(calls, output_calls)
 logger.info(f"Wrote {len(calls)} Scrublet call rows to {output_calls}")
 
 # Save
