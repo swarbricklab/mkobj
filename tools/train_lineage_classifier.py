@@ -12,11 +12,15 @@ gene_space.csv (panel vs. target matrix gene space) and a README.md stub.
 Typical use (on a normal node, no GPU):
 
   python tools/train_lineage_classifier.py \\
-      --reference wu2021_miniatlas.h5ad --major-key celltype_major \\
-      --fine-key celltype_minor \\
+      --reference miniatlas_cellxgene_7.1.0.h5ad --use-raw \\
+      --major-key celltype_major --fine-key celltype_minor --group-key donor_id \\
       --target-features refdata-gex-GRCh38-2020-A/features.tsv.gz \\
       --version wu2021-v1 --out resources/lineage_classifier/wu2021-v1
   dvc add resources/lineage_classifier/wu2021-v1
+  dvc push resources/lineage_classifier/wu2021-v1.dvc
+
+Other references (e.g. ebca) work the same way with their own label columns and
+version prefix; see docs/lineage_classifier.md.
 
 Then point params.lineages.model at the directory.
 """

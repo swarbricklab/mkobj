@@ -8,6 +8,10 @@
 /resources/*
 !/resources/*.dvc
 !/resources/.gitignore
+# Lineage classifiers: one DVC-tracked directory per reference/version
+!/resources/lineage_classifier/
+/resources/lineage_classifier/*
+!/resources/lineage_classifier/*.dvc
 
 # Test outputs
 /test/results/

@@ -39,17 +39,45 @@ The approach is CellTypist's, implemented in `workflow/scripts/lineage_model.py`
 | Marker scoring (existing cross-lineage markers) | No fine level, thresholds have to be tuned per lineage, and there's no calibrated confidence. |
 | Cohort Leiden + curated cluster map (`ebca` `sc/major_annotation`) | Cohort-level, so it can't run per capture before integration. |
 
-## Building the Wu 2021 model
+## References and models
+
+The classifier is not tied to one atlas. Each trained model is a directory under
+`resources/lineage_classifier/<reference>-v<N>/`, tracked by DVC (remote `mkobj`,
+`/g/data/a56/dvc/analysis/mkobj`), and a run picks one with `params.lineages.model`.
+Swapping references is a config change; nothing in the model code knows about Wu 2021.
+
+| Model | Reference | Labels (major / fine) | Status |
+| --- | --- | --- | --- |
+| `wu2021-v1` | Wu et al. 2021 mini-atlas (`miniatlas_cellxgene_7.1.0.h5ad`, 100k cells, 26 donors) | `celltype_major` (9) / `celltype_minor` (29) | current default |
+| `ebca-v1` | `ebca` atlas | to be decided | planned |
+
+`model.json` records the reference file, the label keys, the training split and the
+held-out metrics, so a labels CSV can always be traced back to its reference.
+
+The class vocabulary changes with the reference. Settings that name classes (the
+cellranger crosswalk, `agreement_collapse`, `adjacent_pairs`) belong to the reference,
+not the workflow, and travel with the model as defaults.
+
+To fetch the models after cloning: `dvc pull resources/lineage_classifier/`.
+
+### Building a model
 
 ```bash
 python tools/train_lineage_classifier.py \
-    --reference <wu2021_miniatlas>.h5ad \
-    --major-key celltype_major --fine-key celltype_minor \
+    --reference <atlas>.h5ad \
+    --major-key <major label column> --fine-key <fine label column> \
+    --group-key donor_id \
     --target-features <refdata-gex-GRCh38-2020-A>/features.tsv.gz \
-    --version wu2021-v1 --out resources/lineage_classifier/wu2021-v1
-dvc add resources/lineage_classifier/wu2021-v1
-git add resources/lineage_classifier/wu2021-v1.dvc
+    --version <reference>-v<N> --out resources/lineage_classifier/<reference>-v<N>
+dvc add resources/lineage_classifier/<reference>-v<N>
+dvc push resources/lineage_classifier/<reference>-v<N>.dvc
+git add resources/lineage_classifier/<reference>-v<N>.dvc
 ```
+
+Add `--use-raw` when counts are in `.raw` (as in the cellxgene Wu 2021 object) and
+`--gene-id-key` when Ensembl ids are not in `var.index`. Report the donor-held-out
+metrics (`--group-key`) for a new cohort; a per-cell split shares donors between train and
+test and flatters accuracy. Never overwrite a published version: train `-v<N+1>`.
 
 The reference must hold raw counts (`--counts-layer` if they are not in `X`). Fine
 classes with fewer than `--min-cells-per-class` cells are folded into their major class.
@@ -57,7 +85,8 @@ classes with fewer than `--min-cells-per-class` cells are folded into their majo
 Outputs next to the model:
 
 - `metrics.csv`: held-out accuracy, balanced accuracy and median confidence per level
-  (20% split stratified by fine label; the shipped model is then refit on all cells).
+  (20% of cells stratified by fine label, or 20% of `--group-key` groups such as donors;
+  the shipped model is then refit on all cells).
 - `confusion_<level>.csv`: held-out confusion matrices.
 - `gene_space.csv`: reference genes, target genes, genes matched by Ensembl id and by
   symbol only, unmatched genes, and the panel size.
@@ -76,5 +105,8 @@ releases fall out of the panel.
 
 - [x] Model code, training CLI, unit tests (`test/unit/test_lineage_model.py`).
 - [x] End-to-end check on the synthetic fixture (`test/synthetic/make_lineage_model.py`).
-- [ ] Train on the Wu 2021 mini-atlas (cluster), record held-out accuracy, `dvc add`.
-- [ ] Time prediction on one real capture.
+- [x] `wu2021-v1` trained on the Wu 2021 mini-atlas and DVC-tracked. Held out
+      (cells / donors): major 0.992 / 0.994, fine 0.882 / 0.861 accuracy. Fine-level
+      confidence is overconfident; major-level confidence is calibrated.
+- [x] Prediction on one real capture: under 1 s.
+- [ ] `ebca` model.
