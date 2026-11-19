@@ -1,0 +1,6 @@
+outs:
+- md5: 19de83fec9baff6f6c3c76958558f32a.dir
+  size: 642008
+  nfiles: 10
+  hash: md5
+  path: wu2021-v1
