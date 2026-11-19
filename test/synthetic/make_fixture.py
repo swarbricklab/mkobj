@@ -74,13 +74,17 @@ def gene_table():
     named += [f"MT-CO{i}" for i in (1, 2, 3)] + ["RPS3", "RPL13", "RPS27"]
     names = named + [f"GENE{i:04d}" for i in range(N_FILLER)]
     ids = [f"ENSG{90000000000 + i:011d}" for i in range(len(names))]
-    return pd.DataFrame({"gene_id": ids, "gene_name": names})
+    background = np.random.default_rng(12345).gamma(0.4, 1.0, size=len(names))
+    return pd.DataFrame({"gene_id": ids, "gene_name": names, "background": background})
 
 
 def simulate_cell(rng, genes, fine, donor, depth):
     """Poisson-ish counts from a cell-type + donor programme."""
     name_idx = {n: i for i, n in enumerate(genes.gene_name)}
-    mu = rng.gamma(0.4, 1.0, size=len(genes))          # background
+    # Background: a fixed per-gene level (shared by all cells) with mild per-cell
+    # noise. Drawing it independently per cell makes filler genes look highly
+    # variable and swamps Scrublet's gene selection.
+    mu = genes["background"].values * rng.gamma(20.0, 1 / 20.0, size=len(genes))
     for g in MARKERS[fine]:
         mu[name_idx[g]] += 25.0
     for g in SEX_GENES[DONOR_SEX[donor]]:
@@ -125,7 +129,7 @@ def make_capture(rng, capture, donors, genes, out):
     cr.mkdir(parents=True, exist_ok=True)
     with gzip.open(cr / "matrix.mtx.gz", "wb") as fh:
         io.mmwrite(fh, sparse.csr_matrix(X.T).astype(np.int64), field="integer")
-    feats = genes.assign(feature_type="Gene Expression")
+    feats = genes[["gene_id", "gene_name"]].assign(feature_type="Gene Expression")
     feats.to_csv(cr / "features.tsv.gz", sep="\t", header=False, index=False,
                  compression="gzip")
     pd.Series(barcodes).to_csv(cr / "barcodes.tsv.gz", sep="\t", header=False,

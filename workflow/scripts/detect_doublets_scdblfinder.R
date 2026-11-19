@@ -118,6 +118,10 @@ calls <- data.frame(
     doublet_call  = sce$scDblFinder.class == "doublet",
     stringsAsFactors = FALSE
 )
+# Most likely parent clusters ("A+B"), only when clusters were passed (#48).
+if (!is.null(sce$scDblFinder.mostLikelyOrigin)) {
+    calls$doublet_origin <- as.character(sce$scDblFinder.mostLikelyOrigin)
+}
 message("Called ", sum(calls$doublet_call), " / ", nrow(calls), " doublets (",
         sprintf("%.2f", 100 * mean(calls$doublet_call)), "%)")
 
@@ -126,5 +130,8 @@ dir.create(dirname(out_csv), recursive = TRUE, showWarnings = FALSE)
 # the float64 scDblFinder computed. 17 significant digits always do;
 # combine_doublet_calls re-writes them in shortest round-trip form.
 calls$doublet_score <- sprintf("%.17g", calls$doublet_score)
-write.csv(calls, out_csv, row.names = FALSE, quote = FALSE)
+# Quote only the free-text origin labels ("A+B"; fine labels may contain commas),
+# so the numeric columns keep the same unquoted layout as before.
+write.csv(calls, out_csv, row.names = FALSE,
+          quote = which(names(calls) == "doublet_origin"))
 message("Wrote ", out_csv)

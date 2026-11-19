@@ -17,7 +17,7 @@ import pandas as pd
 # Required columns, in order. Engines may add optional columns (see OPTIONAL).
 COLUMNS = ["capture_id", "barcode", "engine", "doublet_score", "doublet_call"]
 # Optional columns, written after COLUMNS when any engine provides them.
-OPTIONAL = ["cross_lineage_flag", "known_doublet"]
+OPTIONAL = ["cross_lineage_flag", "known_doublet", "doublet_origin"]
 
 
 def strip_capture_prefix(obs_names, capture: str) -> list[str]:
@@ -97,7 +97,7 @@ def read_calls(path) -> pd.DataFrame:
 
 
 # ── Known (genotype-detected) doublets (#42) ─────────────────────────────────────
-KNOWN_COLUMNS = ["capture_id", "barcode", "known_doublet", "known_source"]
+KNOWN_COLUMNS = ["capture_id", "barcode", "known_doublet", "demux_status", "known_source"]
 
 
 def known_from_posteriors(post: pd.DataFrame, capture: str) -> pd.DataFrame:
@@ -110,6 +110,7 @@ def known_from_posteriors(post: pd.DataFrame, capture: str) -> pd.DataFrame:
         "capture_id": capture,
         "barcode": post["barcode"].astype(str).values,
         "known_doublet": post["consensus_status"].astype(str).str.lower().eq("doublet").values,
+        "demux_status": post["consensus_status"].astype(str).str.lower().values,
         "known_source": "doublet_posteriors",
     })
 
@@ -142,6 +143,7 @@ def known_from_status(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
         "capture_id": capture,
         "barcode": strip_capture_prefix(obs.index, capture),
         "known_doublet": obs["status"].astype(str).eq("doublet").values,
+        "demux_status": obs["status"].astype(str).values,
         "known_source": "assignment_status",
     })
 

@@ -54,6 +54,10 @@ Edit the config file to match your dataset structure.
 | `params.doublets.dbr_per1k` | `dbr.per1k` per chip type | `{standard: 0.008, ht: 0.004}` |
 | `params.doublets.clusters` | scDblFinder `clusters`: `none` (random artificial doublets), `lineage_fine` or `lineage_major` (needs `params.lineages.enabled`) | `none` |
 | `params.doublets.min_cluster_size` | Fine types with fewer cells are folded into their major lineage; a folded remnant still below it joins the largest fine type of that lineage. Lineages that are small as a whole stay their own cluster | `50` |
+| `params.doublets.report` | Write `doublets/report/concordance_<capture_id>.csv` and `concordance_cohort.csv` (needs `deps.demux`) | `false` |
+| `params.doublets.report_pair_source` | Lineage pair of a doublet: `lineage_top2` (classifier's top two major classes) or `scdblfinder_origin` | `lineage_top2` |
+| `params.doublets.report_min_second_prob` | Runner-up major probability needed to call a cross-lineage pair | `0.2` |
+| `params.doublets.report_ratio_flag` | Flag singlet calls above this multiple (or below its inverse) of `n_singlets × d_within` | `2.0` |
 | `params.lineages.enabled` | Label every called cell per capture with the reference classifier → `lineages/<capture_id>.csv` | `false` |
 | `params.lineages.reference` | Reference profile (`config/lineage_references/<name>.yaml`) supplying `model`, `crosswalk` and `agreement_collapse` for one reference; keys set in `params.lineages` override it | `config/lineage_references/wu2021.yaml` |
 | `params.lineages.model` | Pre-trained classifier directory (`model.json` + `model.npz`; see `docs/lineage_classifier.md`). Ignored when `train` is set | from the profile (`resources/lineage_classifier/wu2021-v1`) |
