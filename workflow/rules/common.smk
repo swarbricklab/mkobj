@@ -104,9 +104,20 @@ def doublets_enabled():
     p = config.get('params', {})
     return not (p.get('skip_scrublet', False) or p.get('raw_only', False))
 
+DOUBLET_ENGINES = ("scrublet", "scdblfinder")
+
 def doublet_engines():
     """Engines from params.doublets.engines (default: scrublet only)."""
-    return list(config.get('params', {}).get('doublets', {}).get('engines', ['scrublet']))
+    engines = list(config.get('params', {}).get('doublets', {}).get('engines', ['scrublet']))
+    unknown = [e for e in engines if e not in DOUBLET_ENGINES]
+    if unknown or not engines:
+        raise ValueError(f"params.doublets.engines={engines!r}: allowed {DOUBLET_ENGINES}")
+    return engines
+
+def scrublet_in_merge():
+    """True when the merge reads the Scrublet-annotated per-capture objects
+    (per_capture/) rather than the raw ones (per_capture_raw/)."""
+    return doublets_enabled() and "scrublet" in doublet_engines()
 
 def doublet_call_files():
     """The persisted per-capture doublet CSVs (empty when detection is off)."""
