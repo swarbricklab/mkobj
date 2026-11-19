@@ -187,6 +187,9 @@ def main():
     pd.DataFrame(rows).to_csv(out / "samples.csv", index=False)
     pd.DataFrame({"cellranger_label": list(CROSSWALK), "lineage_major": list(CROSSWALK.values())}
                  ).to_csv(out / "lineage_crosswalk.csv", index=False)
+    pd.DataFrame({"capture_id": list(CAPTURES),
+                  "dissociation_protocol": ["separate_then_pooled", "co_dissociated"],
+                  "cells_loaded": [9000, 12000]}).to_csv(out / "capture_metadata.csv", index=False)
     print(f"Wrote synthetic fixture to {out}: {counts}")
 
 

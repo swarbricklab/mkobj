@@ -188,3 +188,36 @@ rule doublet_concordance_cohort:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:
         "../scripts/doublet_concordance_cohort.py"
+
+
+rule doublet_decomposition:
+    """
+    Cohort-level decomposition of doublets into random co-encapsulation vs
+    aggregates, with dissociation protocol as a covariate (#51; exploratory).
+    Enabled by params.decomposition.enabled.
+    """
+    input:
+        unpack(lambda wc: {
+            "calls": [str(out_dir / f"doublets/{c}.csv") for c in captures],
+            "known": [str(out_dir / f"doublets/known/{c}.csv") for c in captures],
+            "lineages": [str(out_dir / f"lineages/{c}.csv") for c in captures],
+            **({"capture_metadata": config['deps']['capture_metadata']}
+               if config['deps'].get('capture_metadata') else {}),
+        })
+    output:
+        per_capture = out_dir / "doublets/decomposition/per_capture.csv",
+        pair_enrichment = out_dir / "doublets/decomposition/pair_enrichment.csv",
+        regression = out_dir / "doublets/decomposition/regression.csv",
+        html = out_dir / "doublets/decomposition/report.html"
+    log:
+        log_dir / "doublet_detection/decomposition.log"
+    params:
+        engine = lambda wc: decomposition_cfg()['engine'],
+        adjacent_pairs = lambda wc: decomposition_cfg()['adjacent_pairs'],
+        f_x_column = lambda wc: decomposition_cfg()['f_x_column'],
+        min_second_prob = doublet_params()['report_min_second_prob'],
+        demux_root = config['deps'].get('demux', '')
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/doublet_decomposition_cohort.py"

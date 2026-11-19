@@ -31,6 +31,7 @@ Edit the config file to match your dataset structure.
 | `deps.ambient` | Path to ambient RNA profiles. Each capture directory should contain `ambient_summary.csv` |
 | `deps.lineage_crosswalk` | Optional override of the reference profile's crosswalk: CSV `cellranger_label, lineage_major` mapping cellranger annotate labels to the model's major lineages (Wu 2021: `config/lineage_references/wu2021_crosswalk.csv`) |
 | `deps.somatifind_calls` | somatifind results root (`calls/<capture>/cell_calls.csv` or `.tsv`, optional `cardelino/<capture>/cell_clone_calls.csv`), attached as `somatic_*` obs columns |
+| `deps.capture_metadata` | CSV `capture_id, dissociation_protocol[, cells_loaded]` for the doublet decomposition |
 | `deps.lineage_markers` | Path to a lineage markers CSV used for cross-lineage doublet detection |
 
 ### Outputs
@@ -68,6 +69,7 @@ Edit the config file to match your dataset structure.
 | `params.lineages.crosswalk_label_column` | Label column of `<annotation>/<capture>/cell_types.csv` used by the crosswalk | `coarse_cell_type` |
 | `params.lineages.agreement_collapse` | Model classes folded onto crosswalk names before computing agreement | from the profile (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells) |
 | `params.attach.lineages` / `.doublets` / `.somatifind` | Attach lineage labels, per-engine doublet scores/calls + `known_doublet`, and somatifind calls to `merged.h5ad` `obs` (each only when its source exists; join coverage is logged per capture) | `true` |
+| `params.decomposition.*` | Exploratory doublet decomposition (`enabled`, `engine`, `f_x_column`, `adjacent_pairs`); see `docs/doublet_decomposition.md` | `enabled: false` |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

@@ -319,3 +319,29 @@ def merge_lineage_csvs_needed():
 def somatifind_root():
     root = config['deps'].get('somatifind_calls', '')
     return root if (root and attach_cfg()['somatifind']) else ''
+
+
+# ── Doublet decomposition (#51; exploratory) ─────────────────────────────────────
+def decomposition_cfg():
+    d = dict(config.get('params', {}).get('decomposition', {}))
+    d.setdefault('enabled', False)
+    d.setdefault('engine', 'scdblfinder')
+    d.setdefault('f_x_column', 'f_x_posterior')
+    # Spatially adjacent lineage pairs (Wu 2021 major names), 'A|B' in any order.
+    d.setdefault('adjacent_pairs', ['Cancer Epithelial|CAFs', 'Cancer Epithelial|Myeloid',
+                                    'Normal Epithelial|CAFs', 'CAFs|Endothelial',
+                                    'Endothelial|PVL', 'Myeloid|T-cells'])
+    if d['enabled']:
+        if not (doublets_enabled() and known_doublets_enabled() and lineages_enabled()):
+            raise ValueError("params.decomposition needs doublet detection, deps.demux "
+                             "and params.lineages.enabled")
+        if d['engine'] not in doublet_engines():
+            raise ValueError(f"params.decomposition.engine={d['engine']!r} is not in "
+                             f"params.doublets.engines={doublet_engines()}")
+    return d
+
+def decomposition_files():
+    if not decomposition_cfg()['enabled']:
+        return []
+    return [out_dir / f"doublets/decomposition/{f}"
+            for f in ("per_capture.csv", "pair_enrichment.csv", "regression.csv", "report.html")]
