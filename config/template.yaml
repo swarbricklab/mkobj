@@ -32,6 +32,11 @@ deps:
   # Expected format: CSV with cell types as headers/index and marker genes listed.
   lineage_markers: ""
 
+  # [Optional] somatifind results root: per-cell calls/<capture>/cell_calls.csv
+  # (or the legacy .tsv) and cardelino/<capture>/cell_clone_calls.csv, attached
+  # to the merged object as somatic_* obs columns (params.attach.somatifind).
+  # somatifind_calls: "data/somatifind"
+
   # [Optional] Override the reference profile's crosswalk from cellranger annotate
   # labels to major lineages (params.lineages.source: crosswalk | both).
   # CSV: cellranger_label, lineage_major, in the model's major vocabulary.
@@ -137,6 +142,18 @@ params:
     #   version: null                       # default: reference file name; model goes to
     #                                       # <results>/lineage_classifier/<version>/
     #   mem_mb: 32000
+
+  # Per-cell annotations attached to merged.h5ad as obs columns, joined on
+  # (capture, barcode); each only when its source exists. Set false to leave the
+  # merged object exactly as without them.
+  #   lineages:   lineage_major/_fine, lineage_confidence_major/_fine, lineage_source
+  #   doublets:   doublet_score_<engine>, doublet_call_<engine>, known_doublet
+  #   somatifind: somatic_evaluable, somatic_burden_matched, somatic_malignant,
+  #               somatic_p_tumour (cardelino)
+  attach:
+    lineages: true
+    doublets: true
+    somatifind: true
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.

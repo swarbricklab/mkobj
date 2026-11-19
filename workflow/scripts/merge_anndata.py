@@ -15,6 +15,7 @@ import numpy as np
 import anndata as ad
 from pathlib import Path
 
+from attach_obs import doublet_columns, lineage_columns, read_table, somatic_columns
 from doublet_io import legacy_scrublet_obs, read_calls
 
 # Set up logging — write to snakemake log file AND stderr
@@ -120,16 +121,55 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
 # Scrublet's obs columns are restored from the persisted doublets/<capture>.csv,
 # one per capture, matched to the per-capture objects by file stem.
 doublet_csvs = {Path(p).stem: p for p in snakemake.input.get("doublet_calls", [])}
+lineage_csvs = {Path(p).stem: p for p in snakemake.input.get("lineages", [])}
+restore_scrublet = snakemake.params.get("restore_scrublet", True)
+attach_doublets = snakemake.params.get("attach_doublets", False)
+somatifind_root = snakemake.params.get("somatifind_root", "")
 
 
 def attach_scrublet(adata: ad.AnnData, capture: str) -> ad.AnnData:
-    if capture not in doublet_csvs or adata.n_obs == 0:
+    if not restore_scrublet or capture not in doublet_csvs or adata.n_obs == 0:
         return adata
     cols = legacy_scrublet_obs(read_calls(doublet_csvs[capture]), adata.obs_names, capture)
     for col in cols.columns:
         adata.obs[col] = cols[col].values
     logger.info(f"  Scrublet columns from {doublet_csvs[capture]}: "
                 f"{int(cols['predicted_doublet'].sum())} predicted doublets")
+    return adata
+
+
+def _set_cols(adata, cols, source, capture, n_matched):
+    for col in cols.columns:
+        adata.obs[col] = cols[col].values
+    logger.info(f"  {source}: {n_matched}/{adata.n_obs} cells of {capture} joined "
+                f"({n_matched / max(adata.n_obs, 1):.1%}); columns {list(cols.columns)}")
+
+
+def attach_annotations(adata: ad.AnnData, capture: str) -> ad.AnnData:
+    """Lineage, doublet and somatifind per-cell outputs as obs columns (#50),
+    joined on (capture, raw barcode). Absent sources add no columns."""
+    if adata.n_obs == 0:
+        return adata
+    barcodes = [n[len(capture) + 1:] if n.startswith(f"{capture}_") else n
+                for n in adata.obs_names]
+    if capture in lineage_csvs:
+        lin = pd.read_csv(lineage_csvs[capture], dtype={"barcode": str})
+        cols, n = lineage_columns(lin, barcodes)
+        _set_cols(adata, cols, "lineages", capture, n)
+    if attach_doublets and capture in doublet_csvs:
+        cols, n = doublet_columns(read_calls(doublet_csvs[capture]), barcodes)
+        _set_cols(adata, cols, "doublets", capture, n)
+    if somatifind_root:
+        root = Path(somatifind_root)
+        calls = read_table(root / "calls" / capture / "cell_calls.csv",
+                           root / "calls" / capture / "cell_calls.tsv")
+        clones = read_table(root / "cardelino" / capture / "cell_clone_calls.csv",
+                            root / "cardelino" / capture / "cell_clone_calls.tsv")
+        if calls is None and clones is None:
+            logger.warning(f"  somatifind: no per-cell calls for {capture} under {root}")
+        else:
+            cols, n = somatic_columns(calls, clones, barcodes)
+            _set_cols(adata, cols, "somatifind", capture, n)
     return adata
 
 
@@ -140,6 +180,7 @@ for i, h5ad_file in enumerate(h5ad_files):
     logger.info(f"Loading: {h5ad_file}")
     adata = ad.read_h5ad(h5ad_file)
     adata = attach_scrublet(adata, Path(h5ad_file).stem)
+    adata = attach_annotations(adata, Path(h5ad_file).stem)
     adata = filter_adata(adata, samples_filter)
     if adata.n_obs > 0:
         objects.append(adata)

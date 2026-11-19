@@ -16,9 +16,25 @@
 # read and no scrublet columns are added: the merged object is a raw aggregate.
 
 def _merge_doublet_calls(capture_list):
-    if not scrublet_in_merge():
+    if not merge_doublet_csvs_needed():
         return []
     return [str(out_dir / f"doublets/{c}.csv") for c in capture_list]
+
+def _merge_lineages(capture_list):
+    """Lineage CSVs attached as obs columns (#50)."""
+    if not merge_lineage_csvs_needed():
+        return []
+    return [str(out_dir / f"lineages/{c}.csv") for c in capture_list]
+
+def _merge_somatifind():
+    """somatifind results root, declared as an input for change detection (#50)."""
+    return [somatifind_root()] if somatifind_root() else []
+
+_attach_params = dict(
+    restore_scrublet = scrublet_in_merge(),
+    attach_doublets = doublets_enabled() and attach_cfg()['doublets'],
+    somatifind_root = somatifind_root(),
+)
 
 if use_subsets:
     rule merge_anndata_captures:
@@ -32,6 +48,8 @@ if use_subsets:
                 capture=subset_captures[wc.subset]
             ),
             doublet_calls = lambda wc: _merge_doublet_calls(subset_captures[wc.subset]),
+            lineages = lambda wc: _merge_lineages(subset_captures[wc.subset]),
+            somatifind = _merge_somatifind(),
             # captures_file is also declared as an input so an edit to pool_id /
             # preparation re-triggers the merge; the script reads it from params.
             captures_file = config['deps'].get('captures', [])
@@ -49,7 +67,8 @@ if use_subsets:
             max_pct_mt = config.get('params', {}).get('max_pct_mt'),
             max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
-            expected_n_vars = config.get('params', {}).get('expected_n_vars')
+            expected_n_vars = config.get('params', {}).get('expected_n_vars'),
+            **_attach_params
         # conda:
             # "../envs/scanpy.yaml"
         container:
@@ -65,6 +84,8 @@ else:
         input:
             h5ad_files = expand(out_dir / "per_capture_raw/{capture}.h5ad", capture=captures),
             doublet_calls = _merge_doublet_calls(captures),
+            lineages = _merge_lineages(captures),
+            somatifind = _merge_somatifind(),
             # captures_file is also declared as an input so an edit to pool_id /
             # preparation re-triggers the merge; the script reads it from params.
             captures_file = config['deps'].get('captures', [])
@@ -82,7 +103,8 @@ else:
             max_pct_mt = config.get('params', {}).get('max_pct_mt'),
             max_pct_ribo = config.get('params', {}).get('max_pct_ribo'),
             filter_doublets = config.get('params', {}).get('filter_doublets', True),
-            expected_n_vars = config.get('params', {}).get('expected_n_vars')
+            expected_n_vars = config.get('params', {}).get('expected_n_vars'),
+            **_attach_params
         # conda:
             # "../envs/scanpy.yaml"
         container:
