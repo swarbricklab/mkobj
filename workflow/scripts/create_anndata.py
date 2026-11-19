@@ -382,38 +382,16 @@ for df in [assignments, annotations, ambient]:
         for col in df_aligned.columns:
             adata.obs[col] = df_aligned[col].values
 
-# Subset cells based on samples.csv if provided
+# No cohort subsetting here (#39). The per-capture object keeps EVERY called cell,
+# so detect_doublets sees the whole capture: passenger cells (other projects'
+# singlets) form doublets with cohort cells, and doublet simulation and expected
+# rates refer to the full capture. Cohort subsetting (keep cohort singlets,
+# doublets and unassigned cells) is applied by merge_anndata.py, after doublet
+# detection, using the same samples sheet.
 if valid_samples is not None:
-    logger.info(f"\nFiltering cells for capture: {capture}")
-    n_input = adata.n_obs
-    
-    # Determine which cells to keep:
-    # 1. Cells with sample_id in valid_samples (cohort singlets)
-    # 2. Cells with status == "doublet"
-    # 3. Cells with NA sample_id (unassigned)
-    is_cohort_singlet = adata.obs['sample_id'].isin(valid_samples)
-    is_doublet = adata.obs['status'].eq('doublet') & adata.obs['status'].notna()
-    is_unassigned = adata.obs['sample_id'].isna()
-    
-    keep_cells = is_cohort_singlet | is_doublet | is_unassigned
-    
-    # Log filtering stats
-    n_cohort_singlets = is_cohort_singlet.sum()
-    n_doublets = is_doublet.sum()
-    n_unassigned = is_unassigned.sum()
-    n_kept = keep_cells.sum()
-    n_filtered = n_input - n_kept
-    
-    logger.info(f"  Valid samples from samples.csv: {', '.join(valid_samples)}")
-    logger.info(f"  Input: {n_input} cells")
-    logger.info(f"  Kept: {n_kept} cells")
-    logger.info(f"    - Cohort singlets: {n_cohort_singlets}")
-    logger.info(f"    - Doublets: {n_doublets}")
-    logger.info(f"    - Unassigned: {n_unassigned}")
-    logger.info(f"  Filtered out: {n_filtered} cells (samples not in cohort)")
-    
-    # Subset the AnnData object
-    adata = adata[keep_cells, :].copy()
+    n_cohort = int(adata.obs['sample_id'].isin(valid_samples).sum())
+    logger.info(f"Keeping all {adata.n_obs} called cells for {capture} "
+                f"({n_cohort} cohort singlets; cohort subsetting happens at merge)")
 
 # Add capture ID to cell barcodes (for uniqueness when merging)
 prefixed_barcodes = [f"{capture}_{bc}" for bc in adata.obs_names]
