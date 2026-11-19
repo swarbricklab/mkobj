@@ -25,6 +25,9 @@ def test_single_donor_capture_falls_back_to_loading():
 @pytest.mark.parametrize("summary,reason", [
     (None, "no doublet_summary.csv"),
     ({"n_samples": 3, "d_total": float("nan")}, "d_total is NA"),
+    # zero genotype doublets in a multi-donor capture (unresolved upstream status)
+    ({"n_samples": 5, "d_total": "0", "d_total_sd": "0"}, "d_total=0.0 outside (0, 1)"),
+    ({"n_samples": 5, "d_total": 1.5}, "d_total=1.5 outside (0, 1)"),
 ])
 def test_genotype_fallback_reasons(summary, reason):
     r = choose_dbr("C", 1000, "genotype", summary=summary)

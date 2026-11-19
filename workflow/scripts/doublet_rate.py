@@ -74,6 +74,12 @@ def choose_dbr(capture: str, n_cells: int, source: str, chip=None,
                 reason = "single-sample capture"
             elif d_total is None:
                 reason = "d_total is NA"
+            elif not 0 < d_total < 1:
+                # A multi-donor capture with zero genotype doublets is implausible:
+                # it is what an unresolved singlet/NA consensus_status upstream
+                # gives (n_doublet_hard = 0 -> f_x = 0 -> d_total = 0), and dbr = 0
+                # would tell scDblFinder to expect no doublets at all.
+                reason = f"d_total={d_total} outside (0, 1)"
         if not reason:
             sd = _num(summary.get("d_total_sd"))
             return {**row, "dbr_source_used": "genotype", "dbr_used": d_total,
