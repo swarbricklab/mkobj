@@ -15,8 +15,11 @@
 #   mononuclear cell (16k), connective tissue cell, mesenchymal cell, precursor cell,
 #   germ cell, neuron(-associated), and rarer labels. Use source: both to see what the
 #   model calls them before adding rows.
-# - plasma cell / plasmablast do not occur as coarse labels in bcarc_chromium; kept for
-#   other cellranger versions.
+# - plasma cell / plasmablast do not occur as coarse labels in bcarc_chromium (plasma
+#   cells are labelled "B cell"); kept for other cellranger versions.
+# - In the NeoMet_Pool_012 demo, the model calls most "stem cell" Normal Epithelial,
+#   "hematopoietic cell" / "leukocyte" / "lymphocyte" T-cells, "mononuclear cell" Myeloid
+#   and "abnormal cell" Cancer/Normal Epithelial. Two captures only; check before mapping.
 cellranger_label,lineage_major
 T cell,T-cells
 B cell,B-cells

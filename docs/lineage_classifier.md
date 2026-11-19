@@ -53,7 +53,7 @@ everything that uses that reference's class names:
 - `crosswalk`: cellranger annotate `coarse_cell_type` → the reference's major classes
   (`params.lineages.source: crosswalk | both`, #46);
 - `agreement_collapse`: model classes folded onto crosswalk names before computing
-  agreement (Wu: Cancer/Normal Epithelial → Epithelial).
+  agreement (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells).
 
 Any of these can be overridden in `params.lineages` (and the crosswalk by
 `deps.lineage_crosswalk`). Adding a reference means a model, a crosswalk and a profile.

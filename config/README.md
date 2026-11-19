@@ -59,7 +59,7 @@ Edit the config file to match your dataset structure.
 | `params.lineages.source` | `model`, `crosswalk` (cellranger annotate label → major lineage via the crosswalk; fine labels NA), or `both` (adds `lineage_major_crosswalk` and `lineages/agreement/<capture_id>.csv`) | `model` |
 | `params.lineages.crosswalk` / `deps.lineage_crosswalk` | Crosswalk CSV (`cellranger_label, lineage_major`) overriding the profile's | from the profile |
 | `params.lineages.crosswalk_label_column` | Label column of `<annotation>/<capture>/cell_types.csv` used by the crosswalk | `coarse_cell_type` |
-| `params.lineages.agreement_collapse` | Model classes folded onto crosswalk names before computing agreement | from the profile (Wu: Cancer/Normal Epithelial → Epithelial) |
+| `params.lineages.agreement_collapse` | Model classes folded onto crosswalk names before computing agreement | from the profile (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells) |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

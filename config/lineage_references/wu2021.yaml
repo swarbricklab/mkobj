@@ -13,8 +13,11 @@ model: ../../resources/lineage_classifier/wu2021-v1
 # cellranger annotate coarse_cell_type -> Wu major lineage (source: crosswalk | both).
 crosswalk: wu2021_crosswalk.csv
 
-# The crosswalk cannot tell Cancer from Normal Epithelial; fold both onto its
-# "Epithelial" before computing model-vs-crosswalk agreement.
+# Model classes cellranger's coarse labels cannot separate, folded onto the
+# crosswalk's class before computing model-vs-crosswalk agreement:
+# - Cancer vs Normal Epithelial (both "epithelial cell" -> Epithelial);
+# - plasma cells, which cellranger labels "B cell" (27 demo cells).
 agreement_collapse:
   Cancer Epithelial: Epithelial
   Normal Epithelial: Epithelial
+  Plasma cells: B-cells
