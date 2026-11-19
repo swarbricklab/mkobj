@@ -124,9 +124,10 @@ Cell Ranger matrices
    - Prefixes barcodes with capture ID for uniqueness across captures
    - Converts string columns with NA values to proper string type for h5ad compatibility
 
-2. **detect_doublets**: Scrublet (+ optional cross-lineage markers) per capture, on all called cells
+2. **detect_doublets** (and the other annotation-stage rules): Scrublet (+ optional cross-lineage markers) per capture, on all called cells read straight from the Cell Ranger matrix. Calls are persisted in `doublets/<capture_id>.csv`
 
 3. **merge_anndata_captures**: Merge all per-capture objects into one
+   - Restores the Scrublet `obs` columns (`doublet_score`, `predicted_doublet`, `predicted_scrublet`, `predicted_cross_lineage_doublet`, …) from `doublets/<capture_id>.csv`
    - Subsets each capture to the cohort via `samples.csv` (keeps cohort singlets, demux doublets, and unassigned cells) — after doublet detection
    - Combines all captures using `anndata.concat()` with `join='outer'`
    - Preserves multimodal data in `obsm` across captures
@@ -136,8 +137,8 @@ Cell Ranger matrices
 
 Adding a capture is **not** an incremental operation. The per-capture objects are
 `temp()` — `create_seurat_object` (`per_capture/{capture}.rds`),
-`create_anndata_object` (`per_capture_raw/{capture}.h5ad`) and `detect_doublets`
-(`per_capture/{capture}.h5ad`) — so they are deleted once a merge succeeds. On the
+and `create_anndata_object` (`per_capture_raw/{capture}.h5ad`) — so they are deleted
+once a merge succeeds. On the
 next run they are missing, and every merge that consumes them has to rebuild them.
 
 Per-capture objects are **shared across subsets**, so the rebuild is not confined to
@@ -219,6 +220,63 @@ dvc commit <stage>                      # record the outputs DVC did not produce
 This keeps the incremental behaviour at the cost of the stage no longer being
 reproducible purely through `dvc repro` — a deliberate trade, worth a note in the
 dataset repo when you make it.
+
+### Two-stage use under DVC (annotate → assemble)
+
+Lineage labels and doublet calls from mkobj feed other modules (`somatifind` de novo
+discovery and validation, `ambient_calibration`), whose outputs mkobj then attaches to
+the merged objects. One DVC stage can't do both without a cycle, so run mkobj as two
+stages:
+
+1. **annotate**: `snakemake annotate` builds only the per-capture CSVs
+   (`lineages/`, `doublets/`, including `doublets/known/`, `doublets/report/`,
+   `doublets/scdblfinder_params/`). No objects are merged.
+2. **assemble**: `snakemake all` (the default target) builds the merged objects and
+   attaches the downstream outputs. It reuses the persisted CSVs. The annotation-stage
+   rules read only source inputs (Cell Ranger matrices, demux files, the lineage model)
+   and never the temp per-capture objects, so rebuilding `per_capture_raw/` for the
+   merge does not rerun them.
+
+```yaml
+# dataset dvc.yaml (paths illustrative)
+stages:
+  mkobj_annotate:
+    cmd: ./modules/mkobj/run_mod.sh annotate
+    deps:
+      - modules/mkobj/workflow
+      - config/mkobj/config.yaml
+      - data/counts
+      - data/demux
+      - resources/lineage_classifier/wu2021-v1
+    outs:
+      - data/objects/lineages
+      - data/objects/doublets
+
+  somatifind:
+    cmd: ./modules/somatifind/run_mod.sh
+    deps:
+      - data/objects/lineages
+      - data/objects/doublets
+    outs:
+      - data/somatifind
+
+  mkobj_assemble:
+    cmd: ./modules/mkobj/run_mod.sh all
+    deps:
+      - modules/mkobj/workflow
+      - config/mkobj/config.yaml
+      - data/counts
+      - data/objects/lineages
+      - data/objects/doublets
+      - data/somatifind
+    outs:
+      - data/objects/merged.h5ad   # plus processed.h5ad, cellxgene.h5ad, ...
+```
+
+`all` still builds everything from scratch when nothing exists yet, so single-stage
+use is unchanged. Before running the assemble stage, `run_mod.sh all -n` should list no
+`annotate_lineages`, `detect_doublets*`, `extract_known_doublets`,
+`combine_doublet_calls` or `doublet_concordance*` jobs.
 
 ## Configuration
 

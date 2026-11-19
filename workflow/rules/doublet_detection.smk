@@ -1,9 +1,10 @@
 # workflow/rules/doublet_detection.smk
 # Rules for detecting doublets per capture.
 #
-# Engines (params.doublets.engines): scrublet (detect_doublets; also adds the
-# doublet columns to the per-capture object the merge reads) and scdblfinder
-# (detect_doublets_scdblfinder; calls only).
+# Engines (params.doublets.engines): scrublet (detect_doublets) and scdblfinder
+# (detect_doublets_scdblfinder). Both write calls only; the merge restores the
+# legacy Scrublet obs columns (doublet_score, predicted_doublet, ...) from
+# doublets/<capture>.csv (#49).
 #
 # Each engine writes its own long-format calls to
 #   doublets/engines/<engine>/<capture>.csv   (temp)
@@ -11,14 +12,18 @@
 #   doublets/<capture>.csv
 # (one row per called barcode per engine; schema in scripts/doublet_io.py).
 
+# Annotation-stage rules read source inputs (Cell Ranger matrix, demux files),
+# never the temp per_capture_raw objects: rebuilding those for the merge must
+# not invalidate the persisted CSVs (#49).
+
 rule detect_doublets:
     """
-    Detect doublets using Scrublet and optionally cross-lineage markers.
+    Detect doublets using Scrublet and optionally cross-lineage markers, on
+    every called cell of the capture.
     """
     input:
-        h5ad = out_dir / "per_capture_raw/{capture}.h5ad"
+        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
     output:
-        h5ad = temp(out_dir / "per_capture/{capture}.h5ad"),
         calls = temp(out_dir / "doublets/engines/scrublet/{capture}.csv")
     log:
         log_dir / "doublet_detection/{capture}.log"
@@ -40,13 +45,17 @@ rule extract_known_doublets:
     when present, otherwise the demux `status` column of the per-capture object.
     """
     input:
-        h5ad = out_dir / "per_capture_raw/{capture}.h5ad"
+        unpack(lambda wc: {
+            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            **{k: config['deps'][k] for k in ("demux", "samples") if config['deps'].get(k)},
+        })
     output:
         csv = out_dir / "doublets/known/{capture}.csv"
     log:
         log_dir / "doublet_detection/known_{capture}.log"
     params:
-        demux_root = config['deps'].get('demux', '')
+        demux_root = config['deps'].get('demux', ''),
+        samples_file = config['deps'].get('samples', '')
     container:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:

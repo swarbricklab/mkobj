@@ -96,3 +96,27 @@ def test_posteriors_with_unresolved_vocabulary_are_rejected():
     assert posteriors_resolve_doublets(resolved)[0]
     odd = pd.DataFrame({"barcode": ["A-1"], "consensus_status": ["maybe"]})
     assert not posteriors_resolve_doublets(odd)[0]
+
+
+def test_legacy_scrublet_obs_restores_columns_in_order():
+    from doublet_io import legacy_scrublet_obs
+    obs = _obs(cross=True)
+    obs["Epi"] = [0.9, 0.1]
+    calls = scrublet_calls(obs, "CAP_A", lineage_cols=["Epi"])
+    # merge order differs from the CSV order; extra engine rows are ignored
+    other = calls[COLUMNS].assign(engine="scdblfinder")
+    names = ["CAP_A_TTTG-1", "CAP_A_AAAC-1"]
+    out = legacy_scrublet_obs(pd.concat([calls, other]), names, "CAP_A")
+    assert list(out.columns) == ["doublet_score", "predicted_doublet", "predicted_scrublet",
+                                 "predicted_cross_lineage_doublet", "Epi",
+                                 "doublet_cross_lineage_score"]
+    assert out["doublet_score"].tolist() == [0.5, 0.1]
+    assert out["predicted_doublet"].tolist() == [True, True]   # scrublet | cross-lineage
+    assert out["Epi"].tolist() == [0.1, 0.9]
+
+
+def test_legacy_scrublet_obs_rejects_missing_cells():
+    from doublet_io import legacy_scrublet_obs
+    calls = scrublet_calls(_obs(), "CAP_A")
+    with pytest.raises(ValueError, match="stale"):
+        legacy_scrublet_obs(calls, ["CAP_A_GGGG-1"], "CAP_A")

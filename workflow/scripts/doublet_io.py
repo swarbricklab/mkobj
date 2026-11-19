@@ -12,12 +12,16 @@ Pure functions only (no snakemake globals), so they can be unit-tested.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 # Required columns, in order. Engines may add optional columns (see OPTIONAL).
 COLUMNS = ["capture_id", "barcode", "engine", "doublet_score", "doublet_call"]
 # Optional columns, written after COLUMNS when any engine provides them.
-OPTIONAL = ["cross_lineage_flag", "known_doublet", "doublet_origin"]
+OPTIONAL = ["cross_lineage_flag", "cross_lineage_score", "known_doublet", "doublet_origin"]
+# Per-lineage marker proportions from cross-lineage detection, stored as
+# xl_prop_<lineage> on scrublet rows so the merge can restore them (#49).
+XL_PREFIX = "xl_prop_"
 
 
 def strip_capture_prefix(obs_names, capture: str) -> list[str]:
@@ -26,11 +30,13 @@ def strip_capture_prefix(obs_names, capture: str) -> list[str]:
     return [n[len(prefix):] if n.startswith(prefix) else n for n in obs_names]
 
 
-def scrublet_calls(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
+def scrublet_calls(obs: pd.DataFrame, capture: str, lineage_cols=()) -> pd.DataFrame:
     """Long-format calls for the Scrublet engine from a detect_doublets obs frame.
 
-    Expects 'doublet_score' and 'predicted_scrublet'; adds 'cross_lineage_flag'
-    when cross-lineage detection produced a score column.
+    Expects 'doublet_score' and 'predicted_scrublet'. When cross-lineage
+    detection ran (a 'doublet_cross_lineage_score' column), adds
+    cross_lineage_flag, cross_lineage_score and xl_prop_<lineage> for each of
+    `lineage_cols`, so the merge can restore the full legacy obs columns.
     """
     out = pd.DataFrame({
         "capture_id": capture,
@@ -41,6 +47,40 @@ def scrublet_calls(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
     })
     if "doublet_cross_lineage_score" in obs.columns:
         out["cross_lineage_flag"] = obs["predicted_cross_lineage_doublet"].astype(bool).values
+        out["cross_lineage_score"] = obs["doublet_cross_lineage_score"].astype(float).values
+        for col in lineage_cols:
+            out[f"{XL_PREFIX}{col}"] = obs[col].astype(float).values
+    return out
+
+
+def legacy_scrublet_obs(calls: pd.DataFrame, obs_names, capture: str) -> pd.DataFrame:
+    """Rebuild the obs columns detect_doublets used to write into the per-capture
+    object, from the scrublet rows of doublets/<capture>.csv (#49).
+
+    Columns, in the original order: doublet_score, predicted_doublet,
+    predicted_scrublet, predicted_cross_lineage_doublet, [<lineage>...,
+    doublet_cross_lineage_score]. predicted_doublet = scrublet OR cross-lineage.
+    Raises if any cell of the object has no scrublet row.
+    """
+    sc_rows = calls[calls["engine"] == "scrublet"].set_index("barcode")
+    bcs = strip_capture_prefix(obs_names, capture)
+    missing = pd.Index(bcs).difference(sc_rows.index)
+    if len(missing):
+        raise ValueError(f"{capture}: {len(missing)} cells have no scrublet call "
+                         f"(e.g. {list(missing[:3])}); doublet CSV is stale")
+    r = sc_rows.reindex(bcs)
+    scrub = r["doublet_call"].astype(bool).values
+    has_xl = "cross_lineage_score" in r.columns and r["cross_lineage_score"].notna().all()
+    cross = r["cross_lineage_flag"].astype(bool).values if has_xl else np.zeros(len(r), bool)
+    out = pd.DataFrame(index=pd.Index(obs_names))
+    out["doublet_score"] = r["doublet_score"].astype(float).values
+    out["predicted_doublet"] = scrub | cross
+    out["predicted_scrublet"] = scrub
+    out["predicted_cross_lineage_doublet"] = cross
+    if has_xl:
+        for col in [c for c in r.columns if c.startswith(XL_PREFIX)]:
+            out[col[len(XL_PREFIX):]] = r[col].astype(float).values
+        out["doublet_cross_lineage_score"] = r["cross_lineage_score"].astype(float).values
     return out
 
 

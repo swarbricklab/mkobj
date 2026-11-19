@@ -2,6 +2,7 @@
 """
 workflow/scripts/detect_doublets.py
 Detect doublets in a single capture using Scrublet and optionally cross-lineage markers.
+Writes long-format calls only (doublets/engines/scrublet/<capture>.csv).
 """
 
 import sys
@@ -12,6 +13,7 @@ import scanpy as sc
 import anndata as ad
 from pathlib import Path
 
+from capture_io import read_gex
 from doublet_io import scrublet_calls, write_calls
 
 # Set up logging
@@ -32,8 +34,7 @@ def _excepthook(exc_type, exc_value, exc_tb):
 sys.excepthook = _excepthook
 
 # Inputs
-input_h5ad = snakemake.input.h5ad
-output_h5ad = snakemake.output.h5ad
+matrix_dir = snakemake.input.matrix_dir
 output_calls = snakemake.output.calls
 markers_file = snakemake.params.get("lineage_markers", "")
 scrublet_threshold = snakemake.params.get("scrublet_threshold", 0.2)
@@ -42,7 +43,9 @@ cross_lineage_threshold = snakemake.params.get("cross_lineage_threshold", 0.7)
 capture = snakemake.wildcards.capture
 
 logger.info(f"Detecting doublets for capture: {capture}")
-adata = ad.read_h5ad(input_h5ad)
+# Every called cell, read straight from the Cell Ranger matrix exactly as
+# create_anndata builds it (not from the temp per-capture object; see #49).
+adata = read_gex(matrix_dir, capture)
 
 # 1. Scrublet
 logger.info("Running Scrublet...")
@@ -55,6 +58,7 @@ logger.info(f"Found {adata.obs['predicted_scrublet'].sum()} Scrublet doublets ou
 
 # 2. Cross-lineage
 adata.obs['predicted_cross_lineage_doublet'] = False
+lineage_cols = []
 if markers_file and Path(markers_file).exists():
     logger.info(f"Running cross-lineage detection using {markers_file}...")
     cepo_genes = pd.read_csv(markers_file, index_col=0).to_dict(orient='list')
@@ -81,7 +85,8 @@ if markers_file and Path(markers_file).exists():
 
     # A cell is a cross-lineage doublet if it expresses >threshold for >1 lineage
     # Note: cepo_genes2.keys() may contain lineage names as columns in adata.obs
-    doublet_counts = np.sum(adata.obs[list(cepo_genes2.keys())] > cross_lineage_threshold, axis=1)
+    lineage_cols = list(cepo_genes2.keys())
+    doublet_counts = np.sum(adata.obs[lineage_cols] > cross_lineage_threshold, axis=1)
     adata.obs['predicted_cross_lineage_doublet'] = doublet_counts > 1
     adata.obs['doublet_cross_lineage_score'] = doublet_counts / 10.0
     logger.info(f"Found {adata.obs['predicted_cross_lineage_doublet'].sum()} cross-lineage doublets.")
@@ -94,14 +99,11 @@ total_predicted = adata.obs['predicted_doublet'].sum()
 logger.info(f"Total predicted doublets combined: {total_predicted} ({(total_predicted/adata.n_obs)*100:.2f}%)")
 
 # Persist the Scrublet calls in the long-format schema (#40); combined across
-# engines into doublets/<capture>.csv by combine_doublet_calls.
-calls = scrublet_calls(adata.obs, capture)
+# engines into doublets/<capture>.csv by combine_doublet_calls. This CSV is the
+# only output: the merge restores the obs columns from it (#49), so the
+# annotation stage and the assembly stage can run separately.
+calls = scrublet_calls(adata.obs, capture, lineage_cols)
 Path(output_calls).parent.mkdir(parents=True, exist_ok=True)
 write_calls(calls, output_calls)
 logger.info(f"Wrote {len(calls)} Scrublet call rows to {output_calls}")
-
-# Save
-logger.info(f"Saving to {output_h5ad}")
-Path(output_h5ad).parent.mkdir(parents=True, exist_ok=True)
-adata.write_h5ad(output_h5ad)
 logger.info("Done.")

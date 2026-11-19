@@ -7,17 +7,17 @@ and the known_doublet column of doublets/<capture>.csv (#42).
 Source, in order of preference:
   1. <demux>/<capture>/doublet_posteriors.csv (swarbricklab/snp_demux#53):
      consensus_status == 'doublet'
-  2. the per-capture object's `status` column (create_anndata's resolution of
-     cell_assignment.tsv + the AtLeastHalfSinglet consensus)
+  2. the demux `status` as create_anndata resolves it (cell_assignment.tsv +
+     the AtLeastHalfSinglet consensus), via capture_io.load_assignments
 """
 
 import sys
 import logging
 from pathlib import Path
 
-import anndata as ad
 import pandas as pd
 
+from capture_io import get_valid_samples, load_assignments, read_gex
 from doublet_io import known_from_posteriors, known_from_status, posteriors_resolve_doublets
 
 logging.basicConfig(
@@ -31,7 +31,16 @@ capture = snakemake.wildcards.capture
 demux_root = snakemake.params.demux_root
 post_path = Path(demux_root) / capture / "doublet_posteriors.csv" if demux_root else None
 
-obs = ad.read_h5ad(snakemake.input.h5ad, backed="r").obs
+# Demux status of every called cell, resolved exactly as create_anndata does
+# (read from the source files, not the temp per-capture object; see #49).
+adata = read_gex(snakemake.input.matrix_dir, capture)
+raw_barcodes = [n[len(capture) + 1:] for n in adata.obs_names]
+valid_samples = get_valid_samples(capture, snakemake.params.samples_file)
+assignments = load_assignments(capture, raw_barcodes, demux_root, valid_samples)
+obs = pd.DataFrame(
+    {"status": assignments["status"].reindex(raw_barcodes).fillna("NA").astype(str).values},
+    index=adata.obs_names,
+)
 post = None
 fallback_reason = ""
 if post_path is not None and post_path.exists():

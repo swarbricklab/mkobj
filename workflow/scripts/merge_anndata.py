@@ -15,6 +15,8 @@ import numpy as np
 import anndata as ad
 from pathlib import Path
 
+from doublet_io import legacy_scrublet_obs, read_calls
+
 # Set up logging — write to snakemake log file AND stderr
 logging.basicConfig(
     level=logging.INFO,
@@ -114,12 +116,30 @@ def filter_adata(adata: ad.AnnData, samples_filter: pd.DataFrame | None) -> ad.A
     return adata
 
 
+# ── Doublet calls (#49) ──────────────────────────────────────────────────────────
+# Scrublet's obs columns are restored from the persisted doublets/<capture>.csv,
+# one per capture, matched to the per-capture objects by file stem.
+doublet_csvs = {Path(p).stem: p for p in snakemake.input.get("doublet_calls", [])}
+
+
+def attach_scrublet(adata: ad.AnnData, capture: str) -> ad.AnnData:
+    if capture not in doublet_csvs or adata.n_obs == 0:
+        return adata
+    cols = legacy_scrublet_obs(read_calls(doublet_csvs[capture]), adata.obs_names, capture)
+    for col in cols.columns:
+        adata.obs[col] = cols[col].values
+    logger.info(f"  Scrublet columns from {doublet_csvs[capture]}: "
+                f"{int(cols['predicted_doublet'].sum())} predicted doublets")
+    return adata
+
+
 # ── Load and (optionally) filter objects ─────────────────────────────────────────
 objects = []
 kept_keys = []  # batch keys for the KEPT objects only — must stay aligned with `objects`
 for i, h5ad_file in enumerate(h5ad_files):
     logger.info(f"Loading: {h5ad_file}")
     adata = ad.read_h5ad(h5ad_file)
+    adata = attach_scrublet(adata, Path(h5ad_file).stem)
     adata = filter_adata(adata, samples_filter)
     if adata.n_obs > 0:
         objects.append(adata)
