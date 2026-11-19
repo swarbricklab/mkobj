@@ -222,3 +222,41 @@ rule doublet_decomposition:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:
         "../scripts/doublet_decomposition_cohort.py"
+
+
+rule cell_qc_features:
+    """Per-cell QC features of every called cell, for the within-lineage score (#52)."""
+    input:
+        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
+    output:
+        csv = out_dir / "doublets/qc/{capture}.csv"
+    log:
+        log_dir / "doublet_detection/qc_{capture}.log"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/cell_qc_features.py"
+
+
+rule within_lineage_score:
+    """
+    Exploratory within-lineage doublet score trained on cross-donor same-lineage
+    known doublets (#52). Enabled by params.within_lineage.enabled.
+    """
+    input:
+        qc = expand(out_dir / "doublets/qc/{capture}.csv", capture=captures),
+        known = expand(out_dir / "doublets/known/{capture}.csv", capture=captures),
+        lineages = expand(out_dir / "lineages/{capture}.csv", capture=captures)
+    output:
+        separability = out_dir / "doublets/within_lineage/separability.csv",
+        per_capture = out_dir / "doublets/within_lineage/per_capture.csv"
+    log:
+        log_dir / "doublet_detection/within_lineage.log"
+    params:
+        min_pos = lambda wc: within_lineage_cfg()['min_pos'],
+        min_second_prob = doublet_params()['report_min_second_prob'],
+        demux_root = config['deps'].get('demux', '')
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/within_lineage_score.py"

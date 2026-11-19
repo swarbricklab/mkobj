@@ -110,6 +110,7 @@ targets.extend(scdblfinder_param_files())
 targets.extend(lineage_files())
 targets.extend(doublet_report_files())
 targets.extend(decomposition_files())
+targets.extend(within_lineage_files())
 
 rule all:
     input:
@@ -124,7 +125,7 @@ rule all:
 # CSVs. See README "Two-stage use under DVC".
 annotation_targets = (lineage_files() + doublet_call_files()
                       + scdblfinder_param_files() + doublet_report_files()
-                      + decomposition_files())
+                      + decomposition_files() + within_lineage_files())
 
 rule annotate:
     input:
