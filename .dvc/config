@@ -1,0 +1,4 @@
+[core]
+    remote = mkobj
+['remote "mkobj"']
+    url = ssh://gadi-dm.nci.org.au/g/data/a56/dvc/analysis/mkobj
