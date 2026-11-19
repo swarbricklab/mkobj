@@ -20,6 +20,10 @@ capture    <- snakemake@wildcards[["capture"]]
 matrix_dir <- snakemake@input[["matrix_dir"]]
 out_csv    <- snakemake@output[["calls"]]
 seed       <- as.integer(snakemake@params[["seed"]])
+known_csv  <- snakemake@input[["known"]]           # NULL when demux is not configured
+known_use  <- snakemake@params[["known_use"]]
+exclude_genes    <- unlist(snakemake@params[["exclude_genes"]])
+exclude_patterns <- unlist(snakemake@params[["exclude_patterns"]])
 
 message("scDblFinder ", as.character(packageVersion("scDblFinder")),
         " on capture ", capture, " (", matrix_dir, ")")
@@ -33,15 +37,50 @@ barcodes <- read.delim(file.path(matrix_dir, "barcodes.tsv.gz"), header = FALSE,
 counts <- as(readMM(file.path(matrix_dir, "matrix.mtx.gz")), "CsparseMatrix")
 gex <- features$feature_type == "Gene Expression"
 counts <- counts[gex, , drop = FALSE]
+gene_names <- features$gene_name[gex]
 rownames(counts) <- make.unique(features$gene_id[gex])
 colnames(counts) <- barcodes
 message("Read ", ncol(counts), " cells x ", nrow(counts), " GEX features")
 
-sce <- SingleCellExperiment(assays = list(counts = counts))
+# ── Known (genotype-detected) doublets (#42) ────────────────────────────────────
+known <- NULL
+if (!is.null(known_csv) && length(known_csv) && nzchar(known_csv)) {
+    kd <- read.csv(known_csv, colClasses = c(barcode = "character"))
+    known <- barcodes %in% kd$barcode[as.logical(kd$known_doublet)]
+    message("Known doublets: ", sum(known), " (", kd$known_source[1], "), knownUse = ",
+            known_use)
+}
 
-# ── Run scDblFinder (package defaults; #42/#43/#47 add knownDoublets, dbr, clusters)
+# With knownUse = "positive" the known doublets are training positives. They are
+# mostly cross-donor, so drop sex-chromosome and HLA genes from the expression
+# space; otherwise the classifier can learn "two donors" instead of "two cells".
+# (scDblFinder's trainingFeatures argument selects classifier features such as
+# cxds_score, not genes, so the genes are removed from the matrix instead.)
+if (!is.null(known) && known_use == "positive") {
+    drop <- gene_names %in% exclude_genes
+    for (p in exclude_patterns) drop <- drop | grepl(p, gene_names)
+    message("knownUse=positive: excluding ", sum(drop), " genes from features: ",
+            paste(sort(unique(gene_names[drop])), collapse = ", "))
+    counts <- counts[!drop, , drop = FALSE]
+    gene_names <- gene_names[!drop]
+}
+
+sce <- SingleCellExperiment(assays = list(counts = counts))
+rowData(sce)$gene_name <- gene_names
+
+# ── Run scDblFinder ─────────────────────────────────────────────────────────────
+args <- list(sce)
+if (!is.null(known)) {
+    args$knownDoublets <- known
+    args$knownUse <- known_use
+}
 set.seed(seed)
-sce <- scDblFinder(sce)
+sce <- do.call(scDblFinder, args)
+# Audit the features actually used: count the configured exclusions (names and
+# patterns) still present. Expect 0 with knownUse = "positive".
+still <- rowData(sce)$gene_name %in% exclude_genes
+for (p in exclude_patterns) still <- still | grepl(p, rowData(sce)$gene_name)
+message("Features used (", nrow(sce), "): excluded genes/patterns present = ", sum(still))
 
 calls <- data.frame(
     capture_id    = capture,

@@ -47,6 +47,8 @@ Edit the config file to match your dataset structure.
 | `params.cross_lineage_threshold` | Ratio of markers expressed to flag crossing over an explicit lineage | `0.7` |
 | `params.doublets.engines` | Doublet engines whose calls go into `doublets/<capture_id>.csv`: `scrublet`, `scdblfinder`. Scrublet also sets `obs.predicted_doublet` (used by `filter_doublets`); scDblFinder writes calls only. Without `scrublet` the merge reads the raw per-capture objects. | `[scrublet]` |
 | `params.doublets.seed` | RNG seed for scDblFinder | `1` |
+| `params.doublets.known_use` | How scDblFinder uses genotype-detected doublets (`knownDoublets`, from `<demux>/<capture>/doublet_posteriors.csv` or else the demux `status`): `discard` or `positive` | `discard` |
+| `params.doublets.positive_exclude_genes` / `positive_exclude_patterns` | Genes (names / regexes) removed from scDblFinder's features when `known_use: positive` | sex-chromosome genes / `^HLA-` |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

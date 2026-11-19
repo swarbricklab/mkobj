@@ -34,6 +34,25 @@ rule detect_doublets:
         "../scripts/detect_doublets.py"
 
 
+rule extract_known_doublets:
+    """
+    Genotype-detected doublets per capture: snp_demux's doublet_posteriors.csv
+    when present, otherwise the demux `status` column of the per-capture object.
+    """
+    input:
+        h5ad = out_dir / "per_capture_raw/{capture}.h5ad"
+    output:
+        csv = temp(out_dir / "doublets/known/{capture}.csv")
+    log:
+        log_dir / "doublet_detection/known_{capture}.log"
+    params:
+        demux_root = config['deps'].get('demux', '')
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/extract_known_doublets.py"
+
+
 rule detect_doublets_scdblfinder:
     """
     scDblFinder on every called cell of a capture (package defaults). Writes
@@ -41,13 +60,20 @@ rule detect_doublets_scdblfinder:
     while the two engines are compared (#41).
     """
     input:
-        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
+        unpack(lambda wc: {
+            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            **({"known": str(out_dir / f"doublets/known/{wc.capture}.csv")}
+               if known_doublets_enabled() else {}),
+        })
     output:
         calls = temp(out_dir / "doublets/engines/scdblfinder/{capture}.csv")
     log:
         log_dir / "doublet_detection/scdblfinder_{capture}.log"
     params:
-        seed = config.get('params', {}).get('doublets', {}).get('seed', 1)
+        seed = doublet_params()['seed'],
+        known_use = doublet_params()['known_use'],
+        exclude_genes = doublet_params()['positive_exclude_genes'],
+        exclude_patterns = doublet_params()['positive_exclude_patterns']
     conda:
         "../envs/scdblfinder.yaml"
     script:
@@ -61,10 +87,12 @@ rule combine_doublet_calls:
     ambient_calibration) that need per-barcode calls without the merged object.
     """
     input:
-        calls = lambda wc: expand(
-            out_dir / "doublets/engines/{engine}/{capture}.csv",
-            engine=doublet_engines(), capture=wc.capture
-        )
+        unpack(lambda wc: {
+            "calls": expand(out_dir / "doublets/engines/{engine}/{capture}.csv",
+                            engine=doublet_engines(), capture=wc.capture),
+            **({"known": str(out_dir / f"doublets/known/{wc.capture}.csv")}
+               if known_doublets_enabled() else {}),
+        })
     output:
         csv = out_dir / "doublets/{capture}.csv"
     log:

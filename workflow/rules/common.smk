@@ -124,3 +124,23 @@ def doublet_call_files():
     if not doublets_enabled():
         return []
     return [out_dir / f"doublets/{c}.csv" for c in captures]
+
+def known_doublets_enabled():
+    """Genotype-detected doublets are extracted whenever SNP demux is configured."""
+    return doublets_enabled() and bool(config['deps'].get('demux'))
+
+def doublet_params():
+    """params.doublets with defaults filled in."""
+    d = dict(config.get('params', {}).get('doublets', {}))
+    d.setdefault('seed', 1)
+    d.setdefault('known_use', 'discard')
+    if d['known_use'] not in ('discard', 'positive'):
+        raise ValueError(f"params.doublets.known_use={d['known_use']!r}: use discard|positive")
+    # Genes dropped from scDblFinder's expression features when known doublets are
+    # training positives, so it learns "two cells" rather than "two donors"
+    # (sex-chromosome genes, HLA).
+    d.setdefault('positive_exclude_genes', [
+        'XIST', 'TSIX', 'RPS4Y1', 'DDX3Y', 'UTY', 'KDM5D', 'EIF1AY', 'ZFY',
+        'USP9Y', 'NLGN4Y', 'TXLNGY', 'PRKY'])
+    d.setdefault('positive_exclude_patterns', ['^HLA-'])
+    return d

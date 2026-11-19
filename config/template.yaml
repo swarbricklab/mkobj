@@ -72,6 +72,14 @@ params:
   doublets:
     engines: [scrublet]
     seed: 1          # RNG seed for scDblFinder
+    # Genotype-detected doublets (snp_demux) are passed to scDblFinder as
+    # knownDoublets whenever deps.demux is set. discard (default): excluded from
+    # training, counted as positives for the threshold. positive: used as training
+    # positives; the genes below are then removed from scDblFinder's expression
+    # features so it learns "two cells", not "two donors".
+    known_use: discard
+    positive_exclude_genes: [XIST, TSIX, RPS4Y1, DDX3Y, UTY, KDM5D, EIF1AY, ZFY, USP9Y, NLGN4Y, TXLNGY, PRKY]
+    positive_exclude_patterns: ["^HLA-"]
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.

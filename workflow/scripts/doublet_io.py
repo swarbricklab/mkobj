@@ -94,3 +94,63 @@ def read_calls(path) -> pd.DataFrame:
     df = pd.read_csv(path, dtype={"capture_id": str, "barcode": str, "engine": str},
                      float_precision="round_trip")
     return validate_calls(df, str(path))
+
+
+# ── Known (genotype-detected) doublets (#42) ─────────────────────────────────────
+KNOWN_COLUMNS = ["capture_id", "barcode", "known_doublet", "known_source"]
+
+
+def known_from_posteriors(post: pd.DataFrame, capture: str) -> pd.DataFrame:
+    """Known doublets from snp_demux's doublet_posteriors.csv (swarbricklab/snp_demux#53):
+    consensus_status == 'doublet'."""
+    missing = {"barcode", "consensus_status"} - set(post.columns)
+    if missing:
+        raise ValueError(f"doublet_posteriors.csv for {capture} missing {sorted(missing)}")
+    return pd.DataFrame({
+        "capture_id": capture,
+        "barcode": post["barcode"].astype(str).values,
+        "known_doublet": post["consensus_status"].astype(str).str.lower().eq("doublet").values,
+        "known_source": "doublet_posteriors",
+    })
+
+
+def posteriors_resolve_doublets(post: pd.DataFrame) -> tuple[bool, str]:
+    """Can doublet_posteriors.csv's consensus_status tell doublets apart?
+
+    snp_demux's cell_assignment.tsv records only 'singlet' or NA; the
+    doublet/unassigned split comes from sample_barcode_assignments.tsv, which
+    create_anndata resolves into the per-capture `status`. If the posteriors file
+    passes that singlet/NA vocabulary through, every non-singlet is NA and
+    'doublet' never appears, so using it would silently give zero known doublets.
+    Usable only when every status is a resolved value.
+    """
+    status = post["consensus_status"]
+    n_na = int(status.isna().sum() + status.astype(str).str.strip().isin(["", "NA", "nan"]).sum())
+    if n_na:
+        return False, f"{n_na} barcodes have NA consensus_status (unresolved singlet/NA vocabulary)"
+    vocab = set(status.astype(str).str.lower())
+    unknown = vocab - {"singlet", "doublet", "unassigned", "recovered"}
+    if unknown:
+        return False, f"unexpected consensus_status values {sorted(unknown)}"
+    return True, f"consensus_status values {sorted(vocab)}"
+
+
+def known_from_status(obs: pd.DataFrame, capture: str) -> pd.DataFrame:
+    """Known doublets from the per-capture object's demux `status` column
+    (create_anndata's resolution: singlet / doublet / unassigned)."""
+    return pd.DataFrame({
+        "capture_id": capture,
+        "barcode": strip_capture_prefix(obs.index, capture),
+        "known_doublet": obs["status"].astype(str).eq("doublet").values,
+        "known_source": "assignment_status",
+    })
+
+
+def attach_known(calls: pd.DataFrame, known: pd.DataFrame) -> pd.DataFrame:
+    """Left-join known_doublet onto long-format calls by (capture_id, barcode).
+    Barcodes absent from `known` get False."""
+    k = known[["capture_id", "barcode", "known_doublet"]]
+    out = calls.drop(columns=["known_doublet"], errors="ignore").merge(
+        k, on=["capture_id", "barcode"], how="left", validate="many_to_one")
+    out["known_doublet"] = out["known_doublet"].astype("boolean").fillna(False).astype(bool)
+    return validate_calls(out)

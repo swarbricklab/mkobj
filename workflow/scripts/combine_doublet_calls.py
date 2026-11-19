@@ -10,7 +10,7 @@ import logging
 
 import pandas as pd
 
-from doublet_io import combine_calls, read_calls, write_calls
+from doublet_io import attach_known, combine_calls, read_calls, write_calls
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +26,10 @@ for path in snakemake.input.calls:
     frames.append(df)
 
 combined = combine_calls(frames)
+if snakemake.input.get("known"):
+    known = pd.read_csv(snakemake.input.known, dtype={"capture_id": str, "barcode": str})
+    combined = attach_known(combined, known)
+    logger.info(f"Attached known_doublet ({int(known['known_doublet'].sum())} known)")
 counts = combined.groupby("engine")["doublet_call"].agg(["size", "sum"])
 for engine, row in counts.iterrows():
     logger.info(f"{engine}: {int(row['sum'])} / {int(row['size'])} called doublets")
