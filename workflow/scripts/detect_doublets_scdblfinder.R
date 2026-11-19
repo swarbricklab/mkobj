@@ -55,5 +55,9 @@ message("Called ", sum(calls$doublet_call), " / ", nrow(calls), " doublets (",
         sprintf("%.2f", 100 * mean(calls$doublet_call)), "%)")
 
 dir.create(dirname(out_csv), recursive = TRUE, showWarnings = FALSE)
+# write.csv keeps only 15 significant digits, so scores would not round-trip to
+# the float64 scDblFinder computed. 17 significant digits always do;
+# combine_doublet_calls re-writes them in shortest round-trip form.
+calls$doublet_score <- sprintf("%.17g", calls$doublet_score)
 write.csv(calls, out_csv, row.names = FALSE, quote = FALSE)
 message("Wrote ", out_csv)
