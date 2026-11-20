@@ -22,9 +22,9 @@ import sys
 import logging
 from pathlib import Path
 
-import anndata as ad
 import pandas as pd
 
+from capture_io import read_gex
 from doublet_io import strip_capture_prefix
 from lineage_crosswalk import agreement_table, apply_crosswalk, load_crosswalk
 from lineage_model import load_model, predict
@@ -41,7 +41,7 @@ LINEAGE_COLUMNS = ["capture_id", "barcode", "lineage_major", "lineage_fine",
 
 capture = snakemake.wildcards.capture
 source = snakemake.params.source
-adata = ad.read_h5ad(snakemake.input.h5ad)
+adata = read_gex(snakemake.input.matrix_dir, capture)   # every called cell (#49)
 barcodes = strip_capture_prefix(adata.obs_names, capture)
 out = pd.DataFrame({"capture_id": capture, "barcode": barcodes})
 model_classes = None

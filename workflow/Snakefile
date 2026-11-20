@@ -113,3 +113,17 @@ targets.extend(doublet_report_files())
 rule all:
     input:
         targets
+
+
+# ── Two-stage use (#49) ──────────────────────────────────────────────────────────
+# `snakemake annotate` builds only the per-capture annotation outputs (lineage
+# labels, doublet calls and their reports) without merging. Dataset repos run it
+# as its own DVC stage, feed those CSVs to downstream modules (somatifind,
+# ambient_calibration), then run `all` (assembly), which reuses the persisted
+# CSVs. See README "Two-stage use under DVC".
+annotation_targets = (lineage_files() + doublet_call_files()
+                      + scdblfinder_param_files() + doublet_report_files())
+
+rule annotate:
+    input:
+        annotation_targets

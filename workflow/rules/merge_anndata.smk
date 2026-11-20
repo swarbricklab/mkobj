@@ -5,17 +5,20 @@
 # filtering via the subset's samples.csv.  Per-capture objects are shared
 # across subsets and built only once.
 #
+# The merge always reads the raw per-capture objects written by create_anndata
+# (per_capture_raw/). When Scrublet runs, its obs columns (doublet_score,
+# predicted_doublet, predicted_scrublet, predicted_cross_lineage_doublet, ...)
+# are restored from the persisted doublets/<capture>.csv (#49), so the
+# annotation stage (rule annotate) and the assembly stage can run separately.
+#
 # "Do even less" raw-deposit path: when params.skip_scrublet (or params.raw_only)
-# is set, the merge reads the PRE-scrublet per-capture objects written by
-# create_anndata (per_capture_raw/) directly, instead of the detect_doublets
-# output (per_capture/).  detect_doublets then never enters the DAG and no
-# scrublet columns are added — the merged object is a true raw aggregate.
+# is set, or scrublet is not among params.doublets.engines, no doublet CSVs are
+# read and no scrublet columns are added: the merged object is a raw aggregate.
 
-# Also when scrublet is not among params.doublets.engines (e.g. scdblfinder only):
-# the merge then reads the raw objects and the scdblfinder calls live in
-# doublets/<capture>.csv.
-_skip_scrublet = not scrublet_in_merge()
-_per_capture_dir = "per_capture_raw" if _skip_scrublet else "per_capture"
+def _merge_doublet_calls(capture_list):
+    if not scrublet_in_merge():
+        return []
+    return [str(out_dir / f"doublets/{c}.csv") for c in capture_list]
 
 if use_subsets:
     rule merge_anndata_captures:
@@ -25,9 +28,10 @@ if use_subsets:
         """
         input:
             h5ad_files = lambda wc: expand(
-                out_dir / (_per_capture_dir + "/{capture}.h5ad"),
+                out_dir / "per_capture_raw/{capture}.h5ad",
                 capture=subset_captures[wc.subset]
             ),
+            doublet_calls = lambda wc: _merge_doublet_calls(subset_captures[wc.subset]),
             # captures_file is also declared as an input so an edit to pool_id /
             # preparation re-triggers the merge; the script reads it from params.
             captures_file = config['deps'].get('captures', [])
@@ -59,7 +63,8 @@ else:
         Uses anndata.concat for proper concatenation.
         """
         input:
-            h5ad_files = expand(out_dir / (_per_capture_dir + "/{capture}.h5ad"), capture=captures),
+            h5ad_files = expand(out_dir / "per_capture_raw/{capture}.h5ad", capture=captures),
+            doublet_calls = _merge_doublet_calls(captures),
             # captures_file is also declared as an input so an edit to pool_id /
             # preparation re-triggers the merge; the script reads it from params.
             captures_file = config['deps'].get('captures', [])

@@ -5,6 +5,20 @@ def get_cellranger_path(wildcards):
     """Return the path to Cell Ranger output for a capture."""
     return Path(config['deps']['cellranger']) / wildcards.capture
 
+def annotation_source(path):
+    """A directory input of an annotation-stage rule (Cell Ranger matrix, demux root),
+    marked ancient() (#49).
+
+    Snakemake 8 treats an input newer than the outputs as updated unless its recorded
+    checksum matches, and it never checksums directories. After `dvc pull`/`checkout`
+    every source file gets a fresh mtime, so without ancient() the assemble stage
+    (`snakemake all`) would recompute -- and overwrite -- the annotate stage's DVC
+    outputs. When the source data really change, DVC re-runs the annotate stage and
+    removes its outputs first; in single-stage use, delete the affected
+    lineages/doublets outputs (or use -R) after changing Cell Ranger or demux inputs.
+    """
+    return ancient(str(path))
+
 def get_assignment_path(wildcards):
     """Return the path to sample assignment file for a capture."""
     if 'demux' in config['deps']:
