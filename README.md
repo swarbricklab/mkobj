@@ -273,6 +273,14 @@ stages:
       - data/objects/merged.h5ad   # plus processed.h5ad, cellxgene.h5ad, ...
 ```
 
+The annotation rules mark their directory inputs (Cell Ranger matrices, the demux
+root) `ancient()`. `dvc pull`/`checkout` gives every file a fresh mtime, and Snakemake
+never checksums directories, so otherwise the assemble stage would recompute (and
+overwrite) the annotate stage's outputs. When the source data really change, DVC re-runs
+the annotate stage and removes its outputs first. In single-stage use, delete the
+affected `lineages/` and `doublets/` outputs (or use `-R annotate_lineages
+detect_doublets ...`) after changing Cell Ranger or demux inputs.
+
 `all` still builds everything from scratch when nothing exists yet, so single-stage
 use is unchanged. Before running the assemble stage, `run_mod.sh all -n` should list no
 `annotate_lineages`, `detect_doublets*`, `extract_known_doublets`,

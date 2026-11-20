@@ -41,7 +41,7 @@ rule train_lineage_classifier:
 def _annotate_lineages_inputs(wc):
     cfg = lineage_cfg()
     # Source inputs only, not the temp per_capture_raw object (#49).
-    inputs = {"matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture)}
+    inputs = {"matrix_dir": annotation_source(Path(config['deps']['cellranger']) / wc.capture)}
     if cfg['source'] in ('model', 'both'):
         inputs["model_json"] = str(lineage_model_dir() / "model.json")
         inputs["model_npz"] = str(lineage_model_dir() / "model.npz")

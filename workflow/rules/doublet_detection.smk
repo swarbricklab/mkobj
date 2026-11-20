@@ -22,7 +22,7 @@ rule detect_doublets:
     every called cell of the capture.
     """
     input:
-        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
+        matrix_dir = lambda wc: annotation_source(Path(config['deps']['cellranger']) / wc.capture)
     output:
         calls = temp(out_dir / "doublets/engines/scrublet/{capture}.csv")
     log:
@@ -46,8 +46,9 @@ rule extract_known_doublets:
     """
     input:
         unpack(lambda wc: {
-            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
-            **{k: config['deps'][k] for k in ("demux", "samples") if config['deps'].get(k)},
+            "matrix_dir": annotation_source(Path(config['deps']['cellranger']) / wc.capture),
+            **({"demux": annotation_source(config['deps']['demux'])} if config['deps'].get('demux') else {}),
+            **({"samples": config['deps']['samples']} if config['deps'].get('samples') else {}),
         })
     output:
         csv = out_dir / "doublets/known/{capture}.csv"
@@ -69,7 +70,7 @@ rule scdblfinder_params:
     """
     input:
         unpack(lambda wc: {
-            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            "matrix_dir": annotation_source(Path(config['deps']['cellranger']) / wc.capture),
             **({"captures_file": config['deps']['captures']}
                if config['deps'].get('captures') else {}),
             **({"lineages": str(out_dir / f"lineages/{wc.capture}.csv")}
@@ -101,7 +102,7 @@ rule detect_doublets_scdblfinder:
     """
     input:
         unpack(lambda wc: {
-            "matrix_dir": str(Path(config['deps']['cellranger']) / wc.capture),
+            "matrix_dir": annotation_source(Path(config['deps']['cellranger']) / wc.capture),
             "params_csv": str(out_dir / f"doublets/scdblfinder_params/{wc.capture}.csv"),
             "clusters": str(out_dir / f"doublets/scdblfinder_clusters/{wc.capture}.csv"),
             **({"known": str(out_dir / f"doublets/known/{wc.capture}.csv")}
