@@ -128,6 +128,7 @@ Cell Ranger matrices
 
 3. **merge_anndata_captures**: Merge all per-capture objects into one
    - Restores the Scrublet `obs` columns (`doublet_score`, `predicted_doublet`, `predicted_scrublet`, `predicted_cross_lineage_doublet`, …) from `doublets/<capture_id>.csv`
+   - Attaches per-cell annotations as `obs` columns, joined on (capture, barcode) and only when their source exists (`params.attach`): `lineage_*` from `lineages/`, `doublet_score_<engine>` / `doublet_call_<engine>` / `known_doublet` from `doublets/`, and `somatic_evaluable` / `somatic_burden_matched` / `somatic_malignant` / `somatic_p_tumour` from `deps.somatifind_calls`. Join coverage is logged per capture
    - Subsets each capture to the cohort via `samples.csv` (keeps cohort singlets, demux doublets, and unassigned cells) — after doublet detection
    - Combines all captures using `anndata.concat()` with `join='outer'`
    - Preserves multimodal data in `obsm` across captures

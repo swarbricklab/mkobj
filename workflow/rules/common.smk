@@ -300,3 +300,22 @@ def lineage_files():
     if lineage_cfg()['source'] == 'both':
         files += [out_dir / f"lineages/agreement/{c}.csv" for c in captures]
     return files
+
+
+# ── Attach per-cell annotations to the merged AnnData (#50) ──────────────────────
+# Each source attaches only when it exists (lineages enabled / doublet detection
+# running / deps.somatifind_calls set). params.attach.<source>: false switches
+# one off; with all three off the merged object is unchanged.
+def attach_cfg():
+    d = dict(config.get('params', {}).get('attach', {}))
+    return {k: bool(d.get(k, True)) for k in ('lineages', 'doublets', 'somatifind')}
+
+def merge_doublet_csvs_needed():
+    return doublets_enabled() and (scrublet_in_merge() or attach_cfg()['doublets'])
+
+def merge_lineage_csvs_needed():
+    return lineages_enabled() and attach_cfg()['lineages']
+
+def somatifind_root():
+    root = config['deps'].get('somatifind_calls', '')
+    return root if (root and attach_cfg()['somatifind']) else ''
