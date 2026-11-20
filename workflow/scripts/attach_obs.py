@@ -57,6 +57,11 @@ def doublet_columns(calls: pd.DataFrame, barcodes):
     if "known_doublet" in calls.columns:
         k = calls.drop_duplicates("barcode").set_index("barcode")["known_doublet"]
         out["known_doublet"] = k.reindex(idx).astype("boolean").values
+    # Plain bool when every cell has a value (the usual case): nullable "boolean"
+    # is only needed for gaps and is less portable (Seurat conversion, validators).
+    for c in out.columns:
+        if out[c].dtype == "boolean" and not out[c].isna().any():
+            out[c] = out[c].astype(bool)
     return out, int(idx.isin(calls["barcode"]).sum())
 
 
@@ -64,8 +69,10 @@ def read_table(path_csv: Path, path_tsv: Path | None = None) -> pd.DataFrame | N
     """Read somatifind's CSV, falling back to the legacy TSV. None if neither exists."""
     for path, sep in ((path_csv, ","), (path_tsv, "\t")):
         if path is not None and Path(path).exists():
+            # Missing values: "" (somatifind's Python writer) and "NA" (cardelino's
+            # R write.table). Donor ids stay strings.
             return pd.read_csv(path, sep=sep, dtype={"barcode": str, "donor": str},
-                               keep_default_na=False, na_values=[""])
+                               keep_default_na=False, na_values=["", "NA"])
     return None
 
 
@@ -80,4 +87,8 @@ def somatic_columns(calls: pd.DataFrame | None, clones: pd.DataFrame | None, bar
         cols, n_c = _join(clones, barcodes, {"p_tumour": "somatic_p_tumour"})
         out = out.join(cols)
         n = max(n, n_c)
+    # All somatic columns are numeric (flags, counts, a probability). Coerce strictly,
+    # so an unexpected token fails here instead of becoming a categorical column.
+    for c in out.columns:
+        out[c] = pd.to_numeric(out[c], errors="raise")
     return out, n
