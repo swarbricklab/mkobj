@@ -353,8 +353,9 @@ def within_lineage_cfg():
     d = dict(config.get('params', {}).get('within_lineage', {}))
     d.setdefault('enabled', False)
     d.setdefault('min_pos', 20)
-    if d['enabled'] and not (known_doublets_enabled() and lineages_enabled()):
-        raise ValueError("params.within_lineage needs deps.demux and params.lineages.enabled")
+    if d['enabled'] and not (doublets_enabled() and known_doublets_enabled() and lineages_enabled()):
+        raise ValueError("params.within_lineage needs doublet detection, deps.demux and "
+                         "params.lineages.enabled")
     return d
 
 def within_lineage_files():

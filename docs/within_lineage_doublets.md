@@ -24,9 +24,14 @@ The genotype singlets of lineage L are **not** clean negatives, because they con
 exactly the within-donor doublets being counted. So this is PU learning
 (Elkan & Noto, 2008):
 
-- Labelled positives are cross-donor known doublets whose lineage pair is `L|L`
-  (pair from the classifier's top two classes, as in #48). Unlabelled cells are the
-  genotype singlets labelled L.
+- Labelled positives are cross-donor known doublets whose lineage pair is `L|L`.
+  The pair comes from the same source as the concordance report (#48,
+  `params.doublets.report_pair_source`): scDblFinder's most likely origin, which needs
+  `params.doublets.clusters: lineage_fine`, else the classifier's top two classes. The
+  top-two fallback labels nearly every real doublet same-lineage (the classifier is
+  confident even on doublets; #62), which would fill the labelled set with
+  cross-lineage doublets. `separability.csv` records `pair_source_used`, and the log
+  warns when top-two dominates. Unlabelled cells are the genotype singlets labelled L.
 - Fit `g(x) = P(labelled | x)` by logistic regression with out-of-fold predictions.
 - `c = mean g` over held-out labelled cells.
 - Each unlabelled cell's doublet probability is `w = (1 − c)/c · g/(1 − g)`, clipped
@@ -44,6 +49,12 @@ fixture it gave 0–1.8 against a truth of 6–9 per capture and lineage.
   breaks if donors differ systematically in RNA content.
 - `auc_cv` (labelled vs unlabelled) is **conservative**, because the unlabelled set
   contains positives.
+- **Spurious genotype doublets.** About 20–65% of consensus doublets per capture have
+  only 1–2 of 5 demuxer votes and singlet-like or lower UMI, i.e. look like singlets
+  (swarbricklab/snp_demux#65). Those enter the labelled set as "doublets" with
+  singlet-like QC, lowering `auc_cv` and `c` and so raising the upward floor below.
+  Resolve snp_demux#65, or restrict positives to well-supported doublets, before
+  reading the estimates.
 - **Upward floor.** When the classes overlap, `c` is underestimated and the estimate
   has a positive bias that grows as separability drops. In simulation (1,500 singlets
   per capture, 5 seeds), the estimate tracks the hidden count about 1:1, but from a

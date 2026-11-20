@@ -227,7 +227,7 @@ rule doublet_decomposition:
 rule cell_qc_features:
     """Per-cell QC features of every called cell, for the within-lineage score (#52)."""
     input:
-        matrix_dir = lambda wc: Path(config['deps']['cellranger']) / wc.capture
+        matrix_dir = lambda wc: annotation_source(Path(config['deps']['cellranger']) / wc.capture)
     output:
         csv = out_dir / "doublets/qc/{capture}.csv"
     log:
@@ -246,7 +246,10 @@ rule within_lineage_score:
     input:
         qc = expand(out_dir / "doublets/qc/{capture}.csv", capture=captures),
         known = expand(out_dir / "doublets/known/{capture}.csv", capture=captures),
-        lineages = expand(out_dir / "lineages/{capture}.csv", capture=captures)
+        lineages = expand(out_dir / "lineages/{capture}.csv", capture=captures),
+        # Doublet calls carry scDblFinder's doublet_origin, used to tell same- from
+        # cross-lineage known doublets (the classifier's top two can't on real data).
+        calls = expand(out_dir / "doublets/{capture}.csv", capture=captures)
     output:
         separability = out_dir / "doublets/within_lineage/separability.csv",
         per_capture = out_dir / "doublets/within_lineage/per_capture.csv"
@@ -255,6 +258,7 @@ rule within_lineage_score:
     params:
         min_pos = lambda wc: within_lineage_cfg()['min_pos'],
         min_second_prob = doublet_params()['report_min_second_prob'],
+        pair_source = doublet_params()['report_pair_source'],
         demux_root = config['deps'].get('demux', '')
     container:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"

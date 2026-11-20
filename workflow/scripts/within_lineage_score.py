@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from doublet_report import lineage_pairs
+from doublet_io import read_calls
+from doublet_report import capture_pairs
 from within_lineage import fit_lineage, normalise_within, per_capture_estimates
 
 logging.basicConfig(
@@ -24,14 +25,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 P = snakemake.params
 
-cells, d_within = [], {}
-for qc_csv, known_csv, lin_csv in zip(snakemake.input.qc, snakemake.input.known,
-                                      snakemake.input.lineages):
+cells, d_within, sources = [], {}, []
+for qc_csv, known_csv, lin_csv, calls_csv in zip(snakemake.input.qc, snakemake.input.known,
+                                                 snakemake.input.lineages, snakemake.input.calls):
     capture = Path(qc_csv).stem
     qc = pd.read_csv(qc_csv, dtype={"barcode": str})
     kn = pd.read_csv(known_csv, dtype={"barcode": str, "demux_status": str})
     lin = pd.read_csv(lin_csv, dtype={"barcode": str})
-    pairs = lineage_pairs(lin, pd.Index(qc["barcode"]), min_second_prob=P.min_second_prob)
+    # Same pairing as the concordance report (#48): scDblFinder's origin where
+    # available (needs doublets.clusters), else the classifier's top two classes.
+    pairs = capture_pairs(read_calls(calls_csv), lin, min_second_prob=P.min_second_prob,
+                          pair_source=P.pair_source).reindex(qc["barcode"])
+    kb = kn.loc[kn["known_doublet"].astype(bool), "barcode"]
+    sources.extend(pairs["pair_source"].reindex(kb).dropna().tolist())
     df = (qc.merge(kn[["barcode", "known_doublet", "demux_status"]], on="barcode", how="left")
             .merge(lin[["barcode", "lineage_major"]], on="barcode", how="left"))
     df["pair_category"] = pairs["pair_category"].reindex(df["barcode"]).values
@@ -41,6 +47,12 @@ for qc_csv, known_csv, lin_csv in zip(snakemake.input.qc, snakemake.input.known,
         s = pd.read_csv(summ).iloc[0]
         if pd.notna(s.get("d_within")):
             d_within[capture] = float(s["d_within"])
+src = pd.Series(sources).value_counts()
+logger.info(f"Known-doublet lineage pairs by source: {src.to_dict()}")
+if src.get("lineage_top2", 0) > src.get("scdblfinder_origin", 0):
+    logger.warning("Most known-doublet pairs come from the classifier's top two classes, "
+                   "which label nearly every real doublet same-lineage. Run scDblFinder with "
+                   "params.doublets.clusters: lineage_fine so the labelled set is right.")
 cells = normalise_within(pd.concat(cells, ignore_index=True), "capture_id")
 cells["known_doublet"] = cells["known_doublet"].fillna(False).astype(bool)
 
@@ -51,6 +63,7 @@ for lineage in sorted(cells["lineage_major"].dropna().unique()):
     if sc is not None:
         scored.append(sc)
 sep = pd.DataFrame(sep_rows)
+sep["pair_source_used"] = ",".join(f"{k}={v}" for k, v in src.items()) or "none"
 sep.to_csv(snakemake.output.separability, index=False)
 logger.info("\n" + sep.to_string(index=False))
 
