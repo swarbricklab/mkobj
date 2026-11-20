@@ -42,7 +42,7 @@ rule extract_known_doublets:
     input:
         h5ad = out_dir / "per_capture_raw/{capture}.h5ad"
     output:
-        csv = temp(out_dir / "doublets/known/{capture}.csv")
+        csv = out_dir / "doublets/known/{capture}.csv"
     log:
         log_dir / "doublet_detection/known_{capture}.log"
     params:
@@ -134,3 +134,47 @@ rule combine_doublet_calls:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:
         "../scripts/combine_doublet_calls.py"
+
+
+rule doublet_concordance:
+    """
+    Per-capture concordance of every engine with the genotype doublets, by
+    lineage pair (#48). Enabled by params.doublets.report.
+    """
+    input:
+        unpack(lambda wc: {
+            "calls": str(out_dir / f"doublets/{wc.capture}.csv"),
+            "known": str(out_dir / f"doublets/known/{wc.capture}.csv"),
+            **({"lineages": str(out_dir / f"lineages/{wc.capture}.csv")}
+               if lineages_enabled() else {}),
+        })
+    output:
+        csv = out_dir / "doublets/report/concordance_{capture}.csv"
+    log:
+        log_dir / "doublet_detection/concordance_{capture}.log"
+    params:
+        demux_root = config['deps'].get('demux', ''),
+        min_second_prob = doublet_params()['report_min_second_prob'],
+        pair_source = doublet_params()['report_pair_source'],
+        ratio_flag = doublet_params()['report_ratio_flag'],
+        known_use = doublet_params()['known_use']
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/doublet_concordance.py"
+
+
+rule doublet_concordance_cohort:
+    """Cohort roll-up of the per-capture concordance reports (#48)."""
+    input:
+        reports = expand(out_dir / "doublets/report/concordance_{capture}.csv", capture=captures)
+    output:
+        csv = out_dir / "doublets/report/concordance_cohort.csv"
+    log:
+        log_dir / "doublet_detection/concordance_cohort.log"
+    params:
+        ratio_flag = doublet_params()['report_ratio_flag']
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
+    script:
+        "../scripts/doublet_concordance_cohort.py"

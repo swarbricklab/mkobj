@@ -154,7 +154,21 @@ def doublet_params():
         raise ValueError(f"params.doublets.clusters={d['clusters']!r}: use none|lineage_fine|lineage_major")
     if d['clusters'] != 'none' and not config.get('params', {}).get('lineages', {}).get('enabled'):
         raise ValueError("params.doublets.clusters needs params.lineages.enabled: true")
+    # Concordance report (#48)
+    d.setdefault('report', False)
+    d.setdefault('report_min_second_prob', 0.2)
+    d.setdefault('report_ratio_flag', 2.0)
+    d.setdefault('report_pair_source', 'scdblfinder_origin')
+    if d['report'] and not config['deps'].get('demux'):
+        raise ValueError("params.doublets.report needs deps.demux (genotype doublets)")
     return d
+
+def doublet_report_files():
+    """Per-capture and cohort concordance CSVs (#48), when enabled."""
+    if not (doublets_enabled() and doublet_params()['report']):
+        return []
+    return ([out_dir / f"doublets/report/concordance_{c}.csv" for c in captures]
+            + [out_dir / "doublets/report/concordance_cohort.csv"])
 
 def scdblfinder_param_files():
     """Persisted per-capture scDblFinder parameter records (#43)."""

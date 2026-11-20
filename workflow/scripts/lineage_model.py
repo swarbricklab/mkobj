@@ -149,11 +149,15 @@ def predict(model: dict, X_counts, var_symbols, var_ids=None, chunk: int = 20000
     """Predict labels + confidences for every cell.
 
     Returns (DataFrame with lineage_<level> and confidence_<level> per level,
+    plus lineage_major_2 / confidence_major_2 for the runner-up major class,
     n_genes_matched). Confidence is the softmax probability of the chosen class.
+    The runner-up approximates the second parent type of a doublet (#48).
     """
     info = model["info"]
     Xp, n_matched = align_genes(X_counts, var_symbols, var_ids, info["genes"])
     out = {f"{p}_{lvl}": [] for lvl in info["levels"] for p in ("lineage", "confidence")}
+    if "major" in info["levels"] and len(info["levels"]["major"]["classes"]) > 1:
+        out.update(lineage_major_2=[], confidence_major_2=[])
     for start in range(0, Xp.shape[0], chunk):
         Xs = np.clip((log_normalise(Xp[start:start + chunk]) - model["mean"]) / model["scale"],
                      -CLIP, CLIP)
@@ -162,5 +166,9 @@ def predict(model: dict, X_counts, var_symbols, var_ids=None, chunk: int = 20000
             k = prob.argmax(axis=1)
             out[f"lineage_{level}"].append(np.asarray(lv["classes"])[k])
             out[f"confidence_{level}"].append(prob[np.arange(len(k)), k])
+            if level == "major" and "lineage_major_2" in out:
+                k2 = np.argsort(prob, axis=1)[:, -2]
+                out["lineage_major_2"].append(np.asarray(lv["classes"])[k2])
+                out["confidence_major_2"].append(prob[np.arange(len(k2)), k2])
     df = pd.DataFrame({k: np.concatenate(v) if v else np.array([]) for k, v in out.items()})
     return df, n_matched

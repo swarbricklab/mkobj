@@ -108,6 +108,7 @@ else:
 targets.extend(doublet_call_files())
 targets.extend(scdblfinder_param_files())
 targets.extend(lineage_files())
+targets.extend(doublet_report_files())
 
 rule all:
     input:
