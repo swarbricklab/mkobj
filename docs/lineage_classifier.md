@@ -53,9 +53,11 @@ everything that uses that reference's class names:
 - `crosswalk`: cellranger annotate `coarse_cell_type` → the reference's major classes
   (`params.lineages.source: crosswalk | both`, #46);
 - `agreement_collapse`: model classes folded onto crosswalk names before computing
-  agreement (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells).
+  agreement (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells);
+- `adjacent_pairs`: spatially adjacent major-lineage pairs, flagged by the doublet
+  decomposition (#51).
 
-Any of these can be overridden in `params.lineages` (and the crosswalk by
+Any of these can be overridden in `params.lineages` (`adjacent_pairs` in `params.decomposition`) (and the crosswalk by
 `deps.lineage_crosswalk`). Adding a reference means a model, a crosswalk and a profile.
 
 A run can also start from scratch: set `params.lineages.train` (a reference atlas and

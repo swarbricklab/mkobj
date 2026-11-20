@@ -109,6 +109,7 @@ targets.extend(doublet_call_files())
 targets.extend(scdblfinder_param_files())
 targets.extend(lineage_files())
 targets.extend(doublet_report_files())
+targets.extend(decomposition_files())
 
 rule all:
     input:
@@ -122,7 +123,8 @@ rule all:
 # ambient_calibration), then run `all` (assembly), which reuses the persisted
 # CSVs. See README "Two-stage use under DVC".
 annotation_targets = (lineage_files() + doublet_call_files()
-                      + scdblfinder_param_files() + doublet_report_files())
+                      + scdblfinder_param_files() + doublet_report_files()
+                      + decomposition_files())
 
 rule annotate:
     input:

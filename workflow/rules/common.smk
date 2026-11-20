@@ -195,7 +195,7 @@ def scdblfinder_param_files():
 _LINEAGE_TRAIN_REQUIRED = ('reference', 'major_key', 'fine_key')
 # Settings a reference profile may supply. They name the reference's classes, so they
 # belong to the reference, not the workflow.
-_LINEAGE_PROFILE_KEYS = ('model', 'crosswalk', 'agreement_collapse')
+_LINEAGE_PROFILE_KEYS = ('model', 'crosswalk', 'agreement_collapse', 'adjacent_pairs')
 
 def _load_lineage_profile(path):
     """Reference profile YAML (e.g. config/lineage_references/wu2021.yaml). Relative
@@ -319,3 +319,30 @@ def merge_lineage_csvs_needed():
 def somatifind_root():
     root = config['deps'].get('somatifind_calls', '')
     return root if (root and attach_cfg()['somatifind']) else ''
+
+
+# ── Doublet decomposition (#51; exploratory) ─────────────────────────────────────
+def decomposition_cfg():
+    d = dict(config.get('params', {}).get('decomposition', {}))
+    d.setdefault('enabled', False)
+    d.setdefault('engine', 'scdblfinder')
+    d.setdefault('f_x_column', 'f_x_posterior')
+    # Spatially adjacent lineage pairs, 'A|B' in any order. They name the
+    # reference's major classes, so they come from the lineage reference profile
+    # (params.lineages.reference -> adjacent_pairs); set here to override.
+    if 'adjacent_pairs' not in d:
+        d['adjacent_pairs'] = list(lineage_cfg().get('adjacent_pairs') or [])
+    if d['enabled']:
+        if not (doublets_enabled() and known_doublets_enabled() and lineages_enabled()):
+            raise ValueError("params.decomposition needs doublet detection, deps.demux "
+                             "and params.lineages.enabled")
+        if d['engine'] not in doublet_engines():
+            raise ValueError(f"params.decomposition.engine={d['engine']!r} is not in "
+                             f"params.doublets.engines={doublet_engines()}")
+    return d
+
+def decomposition_files():
+    if not decomposition_cfg()['enabled']:
+        return []
+    return [out_dir / f"doublets/decomposition/{f}"
+            for f in ("per_capture.csv", "pair_enrichment.csv", "regression.csv", "report.html")]

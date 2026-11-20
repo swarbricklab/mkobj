@@ -21,3 +21,13 @@ agreement_collapse:
   Cancer Epithelial: Epithelial
   Normal Epithelial: Epithelial
   Plasma cells: B-cells
+
+# Spatially adjacent major-lineage pairs ("A|B", any order), flagged in the doublet
+# decomposition (#51): aggregates from incomplete dissociation are enriched for them.
+adjacent_pairs:
+  - Cancer Epithelial|CAFs
+  - Cancer Epithelial|Myeloid
+  - Normal Epithelial|CAFs
+  - CAFs|Endothelial
+  - Endothelial|PVL
+  - Myeloid|T-cells

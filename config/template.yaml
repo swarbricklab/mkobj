@@ -32,6 +32,10 @@ deps:
   # Expected format: CSV with cell types as headers/index and marker genes listed.
   lineage_markers: ""
 
+  # [Optional] Per-capture metadata for doublet decomposition: capture_id,
+  # dissociation_protocol (separate_then_pooled | co_dissociated), cells_loaded.
+  # capture_metadata: "config/mkobj/capture_metadata.csv"
+
   # [Optional] somatifind results root: per-cell calls/<capture>/cell_calls.csv
   # (or the legacy .tsv) and cardelino/<capture>/cell_clone_calls.csv, attached
   # to the merged object as somatic_* obs columns (params.attach.somatifind).
@@ -154,6 +158,16 @@ params:
     lineages: true
     doublets: true
     somatifind: true
+
+  # Exploratory cohort-level doublet decomposition (docs/doublet_decomposition.md).
+  # Needs doublets + deps.demux + lineages; deps.capture_metadata supplies
+  # dissociation_protocol (and cells_loaded).
+  decomposition:
+    enabled: false
+    engine: scdblfinder
+    f_x_column: f_x_posterior
+    # adjacent_pairs: spatially adjacent major-lineage pairs ("A|B"); default from the
+    # lineage reference profile (config/lineage_references/<name>.yaml).
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.

@@ -90,6 +90,27 @@ def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
     return out
 
 
+def capture_pairs(calls: pd.DataFrame, lineages: pd.DataFrame | None,
+                  min_second_prob: float = 0.2,
+                  pair_source: str = "scdblfinder_origin") -> pd.DataFrame:
+    """lineage_pairs for one capture's doublets/<capture>.csv and lineage labels:
+    scDblFinder's origin (doublet_origin column, fine clusters mapped to their
+    major lineage) where present, else the classifier's top two. Shared by the
+    concordance report (#48) and the decomposition (#51)."""
+    cluster_to_major = {}
+    if lineages is not None and "lineage_fine" in lineages and lineages["lineage_fine"].notna().any():
+        cluster_to_major = (lineages.dropna(subset=["lineage_fine", "lineage_major"])
+                            .groupby("lineage_fine")["lineage_major"]
+                            .agg(lambda s: s.value_counts().index[0]).to_dict())
+    origin = None
+    if "doublet_origin" in calls.columns:
+        o = calls.dropna(subset=["doublet_origin"]).drop_duplicates("barcode")
+        origin = o.set_index("barcode")["doublet_origin"] if len(o) else None
+    return lineage_pairs(lineages, pd.Index(calls["barcode"].unique()), origin=origin,
+                         min_second_prob=min_second_prob, cluster_to_major=cluster_to_major,
+                         pair_source=pair_source)
+
+
 def _split_origin(origin: str, known: set) -> tuple[str, str]:
     """Split scDblFinder's "A+B" origin into its two clusters. Cluster names may
     themselves contain '+' (Wu 2021: "T cells CD4+", "T cells CD8+"), so choose the
