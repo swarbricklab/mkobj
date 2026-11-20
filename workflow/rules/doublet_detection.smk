@@ -156,7 +156,8 @@ rule doublet_concordance:
         demux_root = config['deps'].get('demux', ''),
         min_second_prob = doublet_params()['report_min_second_prob'],
         pair_source = doublet_params()['report_pair_source'],
-        ratio_flag = doublet_params()['report_ratio_flag']
+        ratio_flag = doublet_params()['report_ratio_flag'],
+        known_use = doublet_params()['known_use']
     container:
         "docker://ghcr.io/swarbricklab/mkobj-scanpy@sha256:f53e2dd5b4a75a4230a95fcd9f3373ba312faffbd35f65d984d9c69e9c4e795d"
     script:

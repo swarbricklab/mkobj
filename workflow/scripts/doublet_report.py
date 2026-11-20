@@ -7,19 +7,27 @@ Per capture x engine:
   calls among genotype singlets vs the expected n_singlets x d_within
   (swarbricklab/snp_demux#55), with a ratio and a flag
   agreement with every other engine (Jaccard, Cohen's kappa)
+  known_used_in_training: True for scDblFinder with knownUse = "positive". Its
+  known doublets are then training positives, so recall_known is ~1 by
+  construction and says nothing about detection; judge it on the singlet
+  ratio, or hold some genotype doublets out.
 
 Lineage pair of a barcode (pair_source):
-  lineage_top2 (default)  the classifier's top two major classes
-       (lineage_major, lineage_major_2) when the runner-up has probability
-       >= min_second_prob, otherwise (lineage_major, lineage_major). Falls back
-       to the scDblFinder origin when the labels have no runner-up column
-       (e.g. lineages.source: crosswalk).
-  scdblfinder_origin  scDblFinder's most likely origin ("A+B", clusters mapped
-       to their major lineage; needs doublets.clusters), else lineage_top2.
-       On the synthetic fixture the origin got the category right for 68-81%
-       of known doublets vs 100% for lineage_top2, hence the default.
+  scdblfinder_origin (default)  scDblFinder's most likely origin ("A+B", fine
+       clusters mapped to their major lineage), available when scDblFinder ran
+       with doublets.clusters; barcodes without an origin fall back to
+       lineage_top2.
+  lineage_top2  the classifier's top two major classes (lineage_major,
+       lineage_major_2) when the runner-up has probability >= min_second_prob,
+       otherwise (lineage_major, lineage_major).
+  Why origin is the default: the classifier is confident even on doublets. On the
+  NeoMet_Pool_012 demo the runner-up had p >= 0.2 for only 8-14% of genotype
+  doublets, so top-2 called 6/53 cross-lineage where random pairing of that
+  lineage mix predicts ~82%; scDblFinder's origin called 38/53 (72%). (On the
+  synthetic fixture top-2 was 100% correct; its doublets are cleaner.)
   cross_lineage when the two majors differ, same_lineage when they match,
-  unknown without labels.
+  unknown without labels. pair_source_used records which source categorised
+  the known doublets.
 
 Pure functions only, so they can be unit-tested.
 """
@@ -32,18 +40,20 @@ import pandas as pd
 CATEGORIES = ("cross_lineage", "same_lineage", "unknown")
 
 
-PAIR_SOURCES = ("lineage_top2", "scdblfinder_origin")
+PAIR_SOURCES = ("scdblfinder_origin", "lineage_top2")
 
 
 def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
                   origin: pd.Series | None = None, min_second_prob: float = 0.2,
                   cluster_to_major: dict | None = None,
-                  pair_source: str = "lineage_top2") -> pd.DataFrame:
-    """Per barcode: lineage_pair ("A|B", sorted) and pair_category."""
+                  pair_source: str = "scdblfinder_origin") -> pd.DataFrame:
+    """Per barcode: lineage_pair ("A|B", sorted), pair_category and pair_source
+    (the source that set the pair)."""
     if pair_source not in PAIR_SOURCES:
         raise ValueError(f"pair_source={pair_source!r}; use one of {PAIR_SOURCES}")
     out = pd.DataFrame(index=barcodes)
     out["lineage_pair"] = pd.NA
+    out["pair_source"] = pd.NA
     has_top2 = False
     if lineages is not None and len(lineages):
         lin = lineages.set_index("barcode").reindex(barcodes)
@@ -54,6 +64,7 @@ def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
             second = lin["confidence_major_2"].astype(float) >= min_second_prob
             b = b.where(~second, lin["lineage_major_2"].astype("string"))
         out["lineage_pair"] = _pair(a, b)
+        out.loc[out["lineage_pair"].notna().values, "pair_source"] = "lineage_top2"
     use_origin = origin is not None and (pair_source == "scdblfinder_origin" or not has_top2)
     if use_origin:
         o = origin.reindex(barcodes).astype("string")
@@ -64,6 +75,7 @@ def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
             pa = parts[0].map(lambda x: m.get(x, x)).astype("string")
             pb = parts[1].map(lambda x: m.get(x, x)).astype("string")
             out.loc[has[has].index, "lineage_pair"] = _pair(pa, pb).values
+            out.loc[has[has].index, "pair_source"] = "scdblfinder_origin"
     pair = out["lineage_pair"].astype("string")
     split = pair.str.split("|", n=1, expand=True) if pair.notna().any() else None
     cat = pd.Series("unknown", index=barcodes, dtype=object)
@@ -93,7 +105,8 @@ def _kappa(x: np.ndarray, y: np.ndarray) -> float:
 
 def concordance(capture: str, calls: pd.DataFrame, known: pd.DataFrame,
                 pairs: pd.DataFrame, d_within: float | None = None,
-                ratio_flag: float = 2.0) -> pd.DataFrame:
+                ratio_flag: float = 2.0,
+                trained_on_known: tuple = ()) -> pd.DataFrame:
     """One row per engine for one capture. See the module docstring."""
     kn = known.set_index("barcode")
     rows = []
@@ -107,7 +120,9 @@ def concordance(capture: str, calls: pd.DataFrame, known: pd.DataFrame,
         cat = pairs["pair_category"].reindex(g.index).fillna("unknown")
         r = {"capture_id": capture, "engine": engine, "n_cells": len(g),
              "n_called": int(called.sum()), "n_known": int(is_known.sum()),
-             "recall_known": _rate(called & is_known, is_known)}
+             "recall_known": _rate(called & is_known, is_known),
+             "known_used_in_training": engine in trained_on_known,
+             "pair_source_used": _sources(pairs, is_known)}
         for c in CATEGORIES:
             sel = is_known & cat.eq(c)
             r[f"n_known_{c}"] = int(sel.sum())
@@ -135,6 +150,14 @@ def concordance(capture: str, calls: pd.DataFrame, known: pd.DataFrame,
     return pd.DataFrame(rows)
 
 
+def _sources(pairs: pd.DataFrame, is_known: pd.Series) -> str:
+    """Which pair source(s) categorised the known doublets: one name, 'mixed' or 'none'."""
+    if "pair_source" not in pairs:
+        return "none"
+    src = pairs["pair_source"].reindex(is_known.index)[is_known].dropna().unique()
+    return "none" if len(src) == 0 else src[0] if len(src) == 1 else "mixed"
+
+
 def _rate(num: pd.Series, den: pd.Series) -> float:
     d = int(den.sum())
     return float(num.sum()) / d if d else np.nan
@@ -147,6 +170,12 @@ def cohort_rollup(per_capture: pd.DataFrame, ratio_flag: float = 2.0) -> pd.Data
     agg = per_capture.groupby("engine")[count_cols].sum(min_count=1).reset_index()
     agg.insert(0, "capture_id", "cohort")
     agg["n_captures"] = per_capture.groupby("engine").size().values
+    if "pair_source_used" in per_capture:
+        agg["pair_source_used"] = agg["engine"].map(per_capture.groupby("engine")["pair_source_used"]
+                                                    .agg(lambda v: v.iloc[0] if v.nunique() == 1 else "mixed"))
+    if "known_used_in_training" in per_capture:
+        agg["known_used_in_training"] = agg["engine"].map(
+            per_capture.groupby("engine")["known_used_in_training"].any())
     agg["recall_known"] = agg["n_called_known_cross_lineage"].add(
         agg["n_called_known_same_lineage"]).add(agg["n_called_known_unknown"]) / agg["n_known"]
     for c in CATEGORIES:

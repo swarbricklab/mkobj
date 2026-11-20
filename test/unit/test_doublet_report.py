@@ -49,18 +49,22 @@ def test_origin_overrides_top2_and_maps_clusters():
     bc, lineages, known, calls = _fixture()
     origin = pd.Series(["CD4+CD8"] + [None] * 9, index=bc)
     m = {"CD4": "T", "CD8": "T"}
-    # default lineage_top2 ignores the origin when the runner-up column exists
-    assert lineage_pairs(lineages, pd.Index(bc), origin=origin, cluster_to_major=m
-                         ).loc["b0", "pair_category"] == "cross_lineage"
+    # lineage_top2 ignores the origin when the runner-up column exists
+    assert lineage_pairs(lineages, pd.Index(bc), origin=origin, cluster_to_major=m,
+                         pair_source="lineage_top2").loc["b0", "pair_category"] == "cross_lineage"
     # ... and falls back to it when there is no runner-up (crosswalk labels)
     no_top2 = lineages.drop(columns=["lineage_major_2", "confidence_major_2"])
-    assert lineage_pairs(no_top2, pd.Index(bc), origin=origin, cluster_to_major=m
-                         ).loc["b0", "pair_category"] == "same_lineage"
-    pairs = lineage_pairs(lineages, pd.Index(bc), origin=origin, cluster_to_major=m,
-                          pair_source="scdblfinder_origin")
+    assert lineage_pairs(no_top2, pd.Index(bc), origin=origin, cluster_to_major=m,
+                         pair_source="lineage_top2").loc["b0", "pair_category"] == "same_lineage"
+    # default scdblfinder_origin: origin where present, top-2 for the other barcodes
+    pairs = lineage_pairs(lineages, pd.Index(bc), origin=origin, cluster_to_major=m)
     assert pairs.loc["b0", "lineage_pair"] == "T|T"
     assert pairs.loc["b0", "pair_category"] == "same_lineage"
     assert pairs.loc["b1", "pair_category"] == "cross_lineage"
+    assert pairs.loc["b0", "pair_source"] == "scdblfinder_origin"
+    assert pairs.loc["b1", "pair_source"] == "lineage_top2"
+    rep = concordance("C", calls, known, pairs).set_index("engine")
+    assert rep.loc["A", "pair_source_used"] == "mixed"
 
 
 def test_no_lineages_is_unknown_and_cohort_rollup():
@@ -84,3 +88,13 @@ def test_cohort_ratio_uses_only_captures_with_expectation():
     # engine A: 1 singlet call in C (expected 1.0); D's call is excluded
     assert co.loc["A", "n_called_singlets"] == 2
     assert co.loc["A", "ratio_called_vs_expected"] == pytest.approx(1.0)
+
+
+def test_known_used_in_training_is_flagged():
+    bc, lineages, known, calls = _fixture()
+    pairs = lineage_pairs(lineages, pd.Index(bc))
+    rep = concordance("C", calls, known, pairs, trained_on_known=("B",)).set_index("engine")
+    assert bool(rep.loc["B", "known_used_in_training"])
+    assert not rep.loc["A", "known_used_in_training"]
+    co = cohort_rollup(rep.reset_index()).set_index("engine")
+    assert co.loc["B", "known_used_in_training"] and not co.loc["A", "known_used_in_training"]

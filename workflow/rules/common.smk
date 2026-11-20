@@ -158,7 +158,7 @@ def doublet_params():
     d.setdefault('report', False)
     d.setdefault('report_min_second_prob', 0.2)
     d.setdefault('report_ratio_flag', 2.0)
-    d.setdefault('report_pair_source', 'lineage_top2')
+    d.setdefault('report_pair_source', 'scdblfinder_origin')
     if d['report'] and not config['deps'].get('demux'):
         raise ValueError("params.doublets.report needs deps.demux (genotype doublets)")
     return d

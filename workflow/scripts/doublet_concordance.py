@@ -54,8 +54,12 @@ if summary is not None and summary.exists():
         d_within = float(s["d_within"].iloc[0])
 logger.info(f"d_within = {d_within} ({summary if d_within is not None else 'not available'})")
 
+trained = ("scdblfinder",) if snakemake.params.known_use == "positive" else ()
+if trained:
+    logger.warning("scDblFinder ran with knownUse=positive: its recall_known is ~1 by "
+                   "construction (known doublets were training positives)")
 rep = concordance(capture, calls, known, pairs, d_within=d_within,
-                  ratio_flag=snakemake.params.ratio_flag)
+                  ratio_flag=snakemake.params.ratio_flag, trained_on_known=trained)
 logger.info("\n" + rep[["engine", "n_called", "n_known", "recall_known",
                         "recall_known_cross_lineage", "recall_known_same_lineage",
                         "n_called_singlets", "singlet_flag"]].to_string(index=False))

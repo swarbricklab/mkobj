@@ -132,6 +132,7 @@ dir.create(dirname(out_csv), recursive = TRUE, showWarnings = FALSE)
 calls$doublet_score <- sprintf("%.17g", calls$doublet_score)
 # Quote only the free-text origin labels ("A+B"; fine labels may contain commas),
 # so the numeric columns keep the same unquoted layout as before.
-write.csv(calls, out_csv, row.names = FALSE,
-          quote = which(names(calls) == "doublet_origin"))
+# (A numeric `quote` also quotes the header, so fall back to quote = FALSE.)
+qcols <- which(names(calls) == "doublet_origin")
+write.csv(calls, out_csv, row.names = FALSE, quote = if (length(qcols)) qcols else FALSE)
 message("Wrote ", out_csv)

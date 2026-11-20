@@ -102,7 +102,7 @@ params:
     # Concordance report (needs deps.demux): engine calls vs genotype doublets by
     # lineage pair -> doublets/report/concordance_<capture_id>.csv + _cohort.csv.
     report: false
-    report_pair_source: lineage_top2   # or scdblfinder_origin (needs clusters)
+    report_pair_source: scdblfinder_origin   # needs clusters; else per-cell fallback to lineage_top2
     report_min_second_prob: 0.2        # runner-up major prob to call a cross-lineage pair
     report_ratio_flag: 2.0             # flag singlet calls > 2x (or < 1/2x) expected
 
