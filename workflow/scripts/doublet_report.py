@@ -70,10 +70,13 @@ def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
         o = origin.reindex(barcodes).astype("string")
         has = o.notna() & o.str.contains(r"\+", regex=True)
         if has.any():
-            parts = o[has].str.split("+", n=1, expand=True)
             m = cluster_to_major or {}
-            pa = parts[0].map(lambda x: m.get(x, x)).astype("string")
-            pb = parts[1].map(lambda x: m.get(x, x)).astype("string")
+            known = set(m) | set(m.values())
+            if lineages is not None and "lineage_major" in lineages:
+                known |= set(lineages["lineage_major"].dropna().astype(str))
+            split = [_split_origin(x, known) for x in o[has]]
+            pa = pd.Series([a for a, _ in split], index=o[has].index).map(lambda x: m.get(x, x)).astype("string")
+            pb = pd.Series([b for _, b in split], index=o[has].index).map(lambda x: m.get(x, x)).astype("string")
             out.loc[has[has].index, "lineage_pair"] = _pair(pa, pb).values
             out.loc[has[has].index, "pair_source"] = "scdblfinder_origin"
     pair = out["lineage_pair"].astype("string")
@@ -85,6 +88,19 @@ def lineage_pairs(lineages: pd.DataFrame | None, barcodes: pd.Index,
                                   "same_lineage", "cross_lineage")
     out["pair_category"] = cat
     return out
+
+
+def _split_origin(origin: str, known: set) -> tuple[str, str]:
+    """Split scDblFinder's "A+B" origin into its two clusters. Cluster names may
+    themselves contain '+' (Wu 2021: "T cells CD4+", "T cells CD8+"), so choose the
+    '+' at which both halves are known clusters; else the first '+'."""
+    cuts = [i for i, ch in enumerate(origin) if ch == "+"]
+    for i in cuts:
+        a, b = origin[:i], origin[i + 1:]
+        if a in known and b in known:
+            return a, b
+    i = cuts[0]
+    return origin[:i], origin[i + 1:]
 
 
 def _pair(a: pd.Series, b: pd.Series) -> pd.Series:
