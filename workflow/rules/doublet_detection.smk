@@ -117,8 +117,13 @@ rule detect_doublets_scdblfinder:
         known_use = doublet_params()['known_use'],
         exclude_genes = doublet_params()['positive_exclude_genes'],
         exclude_patterns = doublet_params()['positive_exclude_patterns']
-    conda:
-        "../envs/scdblfinder.yaml"
+    # Pinned image built by absconda from envs/scdblfinder.esf.yaml (a conda env export
+    # of the env Snakemake built from envs/scdblfinder.yaml: scDblFinder 1.24.10,
+    # R 4.5.3). Re-enable conda: (and run with --sdm conda) to build the env instead.
+    # conda:
+        # "../envs/scdblfinder.yaml"
+    container:
+        "docker://ghcr.io/swarbricklab/mkobj-scdblfinder@sha256:8dc229e03735829313fc2513063f992b188aa9b9a276a1fb3dd6ec10a187ab0f"
     script:
         "../scripts/detect_doublets_scdblfinder.R"
 
