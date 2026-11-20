@@ -15,7 +15,7 @@ import pandas as pd
 
 from doublet_decomposition import capture_summary, ols, pair_enrichment
 from doublet_io import read_calls
-from doublet_report import lineage_pairs
+from doublet_report import capture_pairs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,8 +39,8 @@ for calls_csv, known_csv, lin_csv in zip(snakemake.input.calls, snakemake.input.
     if P.engine not in set(calls["engine"]):
         raise ValueError(f"{capture}: engine {P.engine!r} not in {calls_csv}")
     lin = pd.read_csv(lin_csv, dtype={"barcode": str})
-    pairs = lineage_pairs(lin, pd.Index(calls["barcode"].unique()),
-                          min_second_prob=P.min_second_prob)
+    pairs = capture_pairs(calls, lin, min_second_prob=P.min_second_prob,
+                          pair_source=P.pair_source)
     d_within = f_x = None
     summ = Path(P.demux_root) / capture / "doublet_summary.csv" if P.demux_root else None
     if summ is not None and summ.exists():
@@ -52,6 +52,8 @@ for calls_csv, known_csv, lin_csv in zip(snakemake.input.calls, snakemake.input.
                 break
     row, grp = capture_summary(capture, calls, known, pairs, P.engine, d_within, f_x)
     row["f_x_source"] = "doublet_summary" if f_x is not None else "n_known / n_cells"
+    known_pairs = pairs["pair_source"].reindex(known.loc[known["known_doublet"].astype(bool), "barcode"])
+    row["pair_source_used"] = (",".join(sorted(known_pairs.dropna().unique())) or "none")
     row["dissociation_protocol"] = meta["dissociation_protocol"].get(capture, np.nan) \
         if "dissociation_protocol" in meta else np.nan
     loaded = meta["cells_loaded"].get(capture, np.nan) if "cells_loaded" in meta else np.nan

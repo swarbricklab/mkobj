@@ -195,7 +195,7 @@ def scdblfinder_param_files():
 _LINEAGE_TRAIN_REQUIRED = ('reference', 'major_key', 'fine_key')
 # Settings a reference profile may supply. They name the reference's classes, so they
 # belong to the reference, not the workflow.
-_LINEAGE_PROFILE_KEYS = ('model', 'crosswalk', 'agreement_collapse')
+_LINEAGE_PROFILE_KEYS = ('model', 'crosswalk', 'agreement_collapse', 'adjacent_pairs')
 
 def _load_lineage_profile(path):
     """Reference profile YAML (e.g. config/lineage_references/wu2021.yaml). Relative
@@ -327,10 +327,11 @@ def decomposition_cfg():
     d.setdefault('enabled', False)
     d.setdefault('engine', 'scdblfinder')
     d.setdefault('f_x_column', 'f_x_posterior')
-    # Spatially adjacent lineage pairs (Wu 2021 major names), 'A|B' in any order.
-    d.setdefault('adjacent_pairs', ['Cancer Epithelial|CAFs', 'Cancer Epithelial|Myeloid',
-                                    'Normal Epithelial|CAFs', 'CAFs|Endothelial',
-                                    'Endothelial|PVL', 'Myeloid|T-cells'])
+    # Spatially adjacent lineage pairs, 'A|B' in any order. They name the
+    # reference's major classes, so they come from the lineage reference profile
+    # (params.lineages.reference -> adjacent_pairs); set here to override.
+    if 'adjacent_pairs' not in d:
+        d['adjacent_pairs'] = list(lineage_cfg().get('adjacent_pairs') or [])
     if d['enabled']:
         if not (doublets_enabled() and known_doublets_enabled() and lineages_enabled()):
             raise ValueError("params.decomposition needs doublet detection, deps.demux "

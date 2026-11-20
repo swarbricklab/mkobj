@@ -166,8 +166,8 @@ params:
     enabled: false
     engine: scdblfinder
     f_x_column: f_x_posterior
-    adjacent_pairs: ["Cancer Epithelial|CAFs", "Cancer Epithelial|Myeloid", "Normal Epithelial|CAFs",
-                     "CAFs|Endothelial", "Endothelial|PVL", "Myeloid|T-cells"]
+    # adjacent_pairs: spatially adjacent major-lineage pairs ("A|B"); default from the
+    # lineage reference profile (config/lineage_references/<name>.yaml).
 
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.

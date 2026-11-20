@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from doublet_io import read_calls
-from doublet_report import concordance, lineage_pairs
+from doublet_report import capture_pairs, concordance
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,24 +25,12 @@ capture = snakemake.wildcards.capture
 calls = read_calls(snakemake.input.calls)
 known = pd.read_csv(snakemake.input.known, dtype={"barcode": str, "demux_status": str})
 
-lineages, cluster_to_major = None, {}
+lineages = None
 if snakemake.input.get("lineages"):
     lineages = pd.read_csv(snakemake.input.lineages, dtype={"barcode": str})
-    if "lineage_fine" in lineages and lineages["lineage_fine"].notna().any():
-        cluster_to_major = (lineages.dropna(subset=["lineage_fine", "lineage_major"])
-                            .groupby("lineage_fine")["lineage_major"]
-                            .agg(lambda s: s.value_counts().index[0]).to_dict())
 else:
     logger.warning("No lineage labels: every known doublet is pair_category 'unknown'")
-
-origin = None
-if "doublet_origin" in calls.columns:
-    o = calls.dropna(subset=["doublet_origin"]).drop_duplicates("barcode")
-    origin = o.set_index("barcode")["doublet_origin"] if len(o) else None
-barcodes = pd.Index(calls["barcode"].unique())
-pairs = lineage_pairs(lineages, barcodes, origin=origin,
-                      min_second_prob=snakemake.params.min_second_prob,
-                      cluster_to_major=cluster_to_major,
+pairs = capture_pairs(calls, lineages, min_second_prob=snakemake.params.min_second_prob,
                       pair_source=snakemake.params.pair_source)
 
 d_within = None
