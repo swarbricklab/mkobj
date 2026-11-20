@@ -346,3 +346,20 @@ def decomposition_files():
         return []
     return [out_dir / f"doublets/decomposition/{f}"
             for f in ("per_capture.csv", "pair_enrichment.csv", "regression.csv", "report.html")]
+
+
+# ── Within-lineage doublet score (#52; exploratory) ──────────────────────────────
+def within_lineage_cfg():
+    d = dict(config.get('params', {}).get('within_lineage', {}))
+    d.setdefault('enabled', False)
+    d.setdefault('min_pos', 20)
+    if d['enabled'] and not (doublets_enabled() and known_doublets_enabled() and lineages_enabled()):
+        raise ValueError("params.within_lineage needs doublet detection, deps.demux and "
+                         "params.lineages.enabled")
+    return d
+
+def within_lineage_files():
+    if not within_lineage_cfg()['enabled']:
+        return []
+    return [out_dir / "doublets/within_lineage/separability.csv",
+            out_dir / "doublets/within_lineage/per_capture.csv"]

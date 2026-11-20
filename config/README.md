@@ -70,6 +70,7 @@ Edit the config file to match your dataset structure.
 | `params.lineages.agreement_collapse` | Model classes folded onto crosswalk names before computing agreement | from the profile (Wu: Cancer/Normal Epithelial → Epithelial, Plasma cells → B-cells) |
 | `params.attach.lineages` / `.doublets` / `.somatifind` | Attach lineage labels, per-engine doublet scores/calls + `known_doublet`, and somatifind calls to `merged.h5ad` `obs` (each only when its source exists; join coverage is logged per capture) | `true` |
 | `params.decomposition.*` | Exploratory doublet decomposition (`enabled`, `engine`, `f_x_column`, `adjacent_pairs` — default from the lineage reference profile); see `docs/doublet_decomposition.md` | `enabled: false` |
+| `params.within_lineage.enabled` / `.min_pos` | Exploratory within-lineage doublet score (PU learning on QC features); see `docs/within_lineage_doublets.md` | `false` / `20` |
 | `params.min_counts` | Minimum total UMI counts per cell | `500` |
 | `params.max_counts` | Maximum total UMI counts per cell | `50000` |
 | `params.min_features` | Minimum number of genes detected per cell | `200` |

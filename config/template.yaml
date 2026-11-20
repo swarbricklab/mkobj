@@ -169,6 +169,12 @@ params:
     # adjacent_pairs: spatially adjacent major-lineage pairs ("A|B"); default from the
     # lineage reference profile (config/lineage_references/<name>.yaml).
 
+  # Exploratory within-lineage doublet score (docs/within_lineage_doublets.md).
+  # Needs deps.demux and lineages.
+  within_lineage:
+    enabled: false
+    min_pos: 20          # minimum labelled (cross-donor same-lineage) doublets per lineage
+
   # ── QC cell filtering thresholds ──
   # Cells outside these ranges are removed during merge.
   # Set to null to disable a particular filter.
