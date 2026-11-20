@@ -147,6 +147,13 @@ def doublet_params():
     if d['dbr_source'] not in ('genotype', 'loading', 'none'):
         raise ValueError(f"params.doublets.dbr_source={d['dbr_source']!r}: use genotype|loading|none")
     d['dbr_per1k'] = {'standard': 0.008, 'ht': 0.004, **d.get('dbr_per1k', {})}
+    # Lineage labels as scDblFinder clusters (#47); needs params.lineages.enabled.
+    d.setdefault('clusters', 'none')
+    d.setdefault('min_cluster_size', 50)
+    if d['clusters'] not in ('none', 'lineage_fine', 'lineage_major'):
+        raise ValueError(f"params.doublets.clusters={d['clusters']!r}: use none|lineage_fine|lineage_major")
+    if d['clusters'] != 'none' and not config.get('params', {}).get('lineages', {}).get('enabled'):
+        raise ValueError("params.doublets.clusters needs params.lineages.enabled: true")
     return d
 
 def scdblfinder_param_files():
