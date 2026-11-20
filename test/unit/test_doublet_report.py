@@ -98,3 +98,16 @@ def test_known_used_in_training_is_flagged():
     assert not rep.loc["A", "known_used_in_training"]
     co = cohort_rollup(rep.reset_index()).set_index("engine")
     assert co.loc["B", "known_used_in_training"] and not co.loc["A", "known_used_in_training"]
+
+
+def test_origin_with_plus_in_cluster_names():
+    # Wu 2021 fine labels contain '+': "T cells CD4++T cells CD8+" is a T|T pair.
+    bc = ["x", "y", "z"]
+    lin = pd.DataFrame({"barcode": bc, "lineage_major": ["T-cells", "T-cells", "Myeloid"],
+                        "lineage_fine": ["T cells CD4+", "T cells CD8+", "Macrophage"]})
+    origin = pd.Series(["T cells CD4++T cells CD8+", "Macrophage+T cells CD8+", "Macrophage+Macrophage"], index=bc)
+    m = {"T cells CD4+": "T-cells", "T cells CD8+": "T-cells", "Macrophage": "Myeloid"}
+    p = lineage_pairs(lin, pd.Index(bc), origin=origin, cluster_to_major=m)
+    assert p.loc["x", "lineage_pair"] == "T-cells|T-cells" and p.loc["x", "pair_category"] == "same_lineage"
+    assert p.loc["y", "lineage_pair"] == "Myeloid|T-cells" and p.loc["y", "pair_category"] == "cross_lineage"
+    assert p.loc["z", "pair_category"] == "same_lineage"
